@@ -9,6 +9,19 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
+app.get('/getip', (req, res) => {
+    const interfaces = os.networkInterfaces();
+    let ip ='localhost';
+    Object.values(interfaces).forEach(iface => {
+        iface.forEach(details => {
+            if (details.family === 'IPv4' && !details.internal) {
+                ip = details.address;
+            }
+        });
+    });
+    res.json({ ip: ip, port: 3000 });
+});
+
 let users = {};
 let seenMessages = new Set(); // ← NEW: tracks message IDs
 
@@ -53,6 +66,23 @@ io.on('connection', (socket) => {
 
         // ── NEW: Also tell the sender their message was relayed ──
         socket.emit('message relayed', { id: data.id, hops: data.hops });
+    });
+
+    //file sharing 
+    socket.on('file message', (data) => {
+        if(seenMessages.has(data.id)) {
+            console.log('Duplicate file ignored:', data.id);
+            return;
+        }
+        if(data.hops >= data.maxHops) { 
+            console.log('Max hops reached — file stopped:', data.id);
+            return;
+        }
+        seenMessages.add(data.id);
+        data.hops = data.hops + 1;
+        console.log(`📁 File ${data.fileName} — hop ${data.hops}/${data.maxHops}`);
+        socket.broadcast.emit('file message', data);
+        socket.emit('file relayed', { id: data.id, hops: data.hops });
     });
 
     // Typing
