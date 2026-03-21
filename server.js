@@ -9,25 +9,53 @@ const io = new Server(server);
 
 app.use(express.static('public'));
 
-// Store connected users
 let users = {};
+let seenMessages = new Set(); // ← NEW: tracks message IDs
 
 io.on('connection', (socket) => {
     console.log('A device connected');
+    // ← ADD THIS
+    io.emit('online count', io.engine.clientsCount);
 
     // User joins
     socket.on('user joined', (username) => {
-        users[socket.id] = username;
-        io.emit('user joined', username);
-        io.emit('online count', Object.keys(users).length);
-    });
+    users[socket.id] = username;
+    io.emit('user joined', username);
+    io.emit('online count', io.engine.clientsCount); // ← change this line
+});
 
     // Message received
+    // Message received
     socket.on('chat message', (data) => {
-        io.emit('chat message', data);
+
+        // Check duplicate
+        if (seenMessages.has(data.id)) {
+            console.log('Duplicate ignored:', data.id);
+            return;
+        }
+
+        // Check hop limit
+        if (data.hops >= data.maxHops) {
+            console.log('Max hops reached — message stopped:', data.id);
+            return;
+        }
+
+        // Mark as seen
+        seenMessages.add(data.id);
+
+        // Increment hop
+        data.hops = data.hops + 1;
+        console.log(`📨 Message ${data.id} — hop ${data.hops}/${data.maxHops} — relayed by server`);
+
+        // ── NEW: Forward to all EXCEPT the sender ──
+        // Sender already has the message, no need to send back
+        socket.broadcast.emit('chat message', data);
+
+        // ── NEW: Also tell the sender their message was relayed ──
+        socket.emit('message relayed', { id: data.id, hops: data.hops });
     });
 
-    // Typing indicator
+    // Typing
     socket.on('typing', (username) => {
         socket.broadcast.emit('typing', username);
     });
@@ -36,18 +64,18 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('stop typing');
     });
 
-    // User disconnects
+    // Disconnect
     socket.on('disconnect', () => {
         const username = users[socket.id];
         if (username) {
             delete users[socket.id];
             io.emit('user left', username);
-            io.emit('online count', Object.keys(users).length);
         }
+        io.emit('online count', io.engine.clientsCount);
     });
 });
 
-// Show IP in terminal
+// Show IP
 const interfaces = os.networkInterfaces();
 console.log('\n============================');
 console.log('🚀 Server is running!');

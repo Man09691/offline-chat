@@ -66,6 +66,7 @@
         font-size: 26px;
         background: linear-gradient(90deg, var(--accent), var(--accent2));
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
         font-weight: 800;
       }
@@ -163,6 +164,7 @@
         font-weight: bold;
         background: linear-gradient(90deg, var(--accent), var(--accent2));
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
       }
 
@@ -373,6 +375,11 @@
         socket.emit("user joined", username);
       }
 
+      // ── GENERATE UNIQUE ID ──
+      function generateID() {
+        return Math.random().toString(36).substr(2, 9) + Date.now();
+      }
+
       // ── SEND MESSAGE ──
       document
         .getElementById("send-btn")
@@ -388,17 +395,39 @@
         const text = input.value.trim();
         if (!text) return;
         const data = {
+          id: generateID(),
           username: username,
           text: text,
           time: new Date().toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
           }),
+          hops: 0,
+          maxHops: 5,
         };
+
+        addMessage(data, true); // ← must be BEFORE input.value = ''
         socket.emit("chat message", data);
         socket.emit("stop typing");
-        input.value = "";
+        input.value = ""; // ← clears AFTER
       }
+
+      // ── RECEIVE MESSAGE ──
+      // This only fires for messages from OTHER people
+      // because server uses socket.broadcast.emit
+      socket.on("chat message", (data) => {
+        // Show message on screen
+        addMessage(data, false);
+        playSound();
+
+        // Relay forward — this device now acts as a node
+        socket.emit("chat message", data);
+      });
+
+      // ── RELAY CONFIRMATION ──
+      socket.on("message relayed", (data) => {
+        console.log(`✅ Relayed — hop ${data.hops}`);
+      });
 
       // ── TYPING INDICATOR ──
       document.getElementById("message-input").addEventListener("input", () => {
@@ -418,22 +447,16 @@
         document.getElementById("typing-indicator").textContent = "";
       });
 
-      // ── RECEIVE MESSAGE ──
-      socket.on("chat message", (data) => {
-        const isMe = data.username === username;
-        addMessage(data, isMe);
-        if (!isMe) playSound();
-      });
-
+      // ── ADD MESSAGE TO SCREEN ──
       function addMessage(data, isMe) {
         const messages = document.getElementById("messages");
         const div = document.createElement("div");
         div.classList.add("message", isMe ? "mine" : "others");
         div.innerHTML = `
-                <div class="name">${isMe ? "You" : data.username}</div>
-                <div>${data.text}</div>
-                <div class="time">${data.time}</div>
-            `;
+            <div class="name">${isMe ? "You" : data.username}</div>
+            <div>${data.text}</div>
+            <div class="time">${data.time}</div>
+        `;
         messages.appendChild(div);
         messages.scrollTop = messages.scrollHeight;
       }
