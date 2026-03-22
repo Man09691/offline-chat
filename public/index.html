@@ -430,6 +430,103 @@
         margin-top: 6px;
         text-align: right;
       }
+      .file-size {
+        font-size: 11px;
+        color: var(--subtext);
+        margin-top: 4px;
+      }
+
+      #preview-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #preview-box {
+        background: var(--surface2);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 20px;
+        padding: 24px;
+        width: 85%;
+        max-width: 320px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+
+      #preview-title {
+        font-size: 16px;
+        font-weight: bold;
+        color: var(--accent);
+      }
+
+      #preview-content img {
+        max-width: 200px;
+        max-height: 200px;
+        border-radius: 12px;
+        object-fit: cover;
+      }
+
+      #preview-content .file-preview-icon {
+        font-size: 56px;
+        text-align: center;
+      }
+
+      #preview-info {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      #preview-name {
+        font-size: 13px;
+        color: var(--text);
+        word-break: break-all;
+        text-align: center;
+      }
+
+      #preview-size {
+        font-size: 12px;
+        color: var(--subtext);
+      }
+
+      #preview-buttons {
+        display: flex;
+        gap: 12px;
+        width: 100%;
+      }
+
+      #preview-cancel {
+        flex: 1;
+        padding: 12px;
+        background: transparent;
+        border: 1px solid var(--subtext);
+        border-radius: 25px;
+        color: var(--subtext);
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      #preview-send {
+        flex: 1;
+        padding: 12px;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        border: none;
+        border-radius: 25px;
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -484,12 +581,27 @@
       </div>
     </div>
 
-    <script>
+    <!-- FILE PREVIEW MODAL -->
+    <div id="preview-modal">
+      <div id="preview-box">
+        <p id="preview-title">Send this file?</p>
+        <div id="preview-content"></div>
+        <div id="preview-info">
+          <span id="preview-name"></span>
+          <span id="preview-size"></span>
+        </div>
+        <div id="preview-buttons">
+          <button id="preview-cancel">Cancel</button>
+          <button id="preview-send">Send ✓</button>
+        </div>
+      </div>
+    </div>
 
+    <script>
       const socket = io();
       let username = "";
       let typingTimeout;
-      
+
       // ── GENERATE QR CODE ──
       async function generateQR() {
         try {
@@ -516,6 +628,13 @@
       // Run on page load
       generateQR();
 
+      // Convert bytes to readable size
+      function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+      }
+
       // ── FILE SHARING ──
       document.getElementById("file-btn").addEventListener("click", () => {
         document.getElementById("file-input").click();
@@ -525,7 +644,6 @@
         const file = e.target.files[0];
         if (!file) return;
 
-        // Limit file size to 5MB
         if (file.size > 5 * 1024 * 1024) {
           alert("File too large! Maximum size is 5MB.");
           return;
@@ -533,29 +651,56 @@
 
         const reader = new FileReader();
         reader.onload = (event) => {
-          const data = {
-            id: generateID(),
-            username: username,
-            fileName: file.name,
-            fileType: file.type,
-            fileData: event.target.result, // base64
-            time: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            hops: 0,
-            maxHops: 5,
+          const fileData = event.target.result;
+          const isImage = file.type.startsWith("image/");
+
+          // ── Show Preview Modal ──
+          const modal = document.getElementById("preview-modal");
+          const content = document.getElementById("preview-content");
+
+          // Show image or file icon in preview
+          if (isImage) {
+            content.innerHTML = `<img src="${fileData}" />`;
+          } else {
+            content.innerHTML = `<div class="file-preview-icon">📄</div>`;
+          }
+
+          document.getElementById("preview-name").textContent = file.name;
+          document.getElementById("preview-size").textContent = formatFileSize(
+            file.size,
+          );
+          modal.style.display = "flex";
+
+          // ── Cancel Button ──
+          document.getElementById("preview-cancel").onclick = () => {
+            modal.style.display = "none";
           };
 
-          // Show on my screen immediately
-          addFileMessage(data, true);
+          // ── Send Button ──
+          document.getElementById("preview-send").onclick = () => {
+            modal.style.display = "none";
 
-          // Send to others
-          socket.emit("file message", data);
+            const data = {
+              id: generateID(),
+              username: username,
+              fileName: file.name,
+              fileType: file.type,
+              fileSize: formatFileSize(file.size),
+              fileData: fileData,
+              time: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              hops: 0,
+              maxHops: 5,
+            };
+
+            addFileMessage(data, true);
+            socket.emit("file message", data);
+          };
         };
-        reader.readAsDataURL(file);
 
-        // Reset input so same file can be sent again
+        reader.readAsDataURL(file);
         e.target.value = "";
       });
 
@@ -576,29 +721,31 @@
         const isImage = data.fileType.startsWith("image/");
 
         if (isImage) {
-          // Show image directly
           div.innerHTML = `
-            <div class="name">${isMe ? "You" : data.username}</div>
-            <img src="${data.fileData}" alt="${data.fileName}" 
-                 onclick="window.open('${data.fileData}', '_blank')" />
-            <button class="download-btn" onclick="downloadFile('${data.fileData}', '${data.fileName}')">
-                ⬇ Download
-            </button>
-            <div class="time">${data.time}</div>
-        `;
+        <div class="name">${isMe ? "You" : data.username}</div>
+        <img src="${data.fileData}" alt="${data.fileName}" 
+             onclick="window.open('${data.fileData}', '_blank')" />
+        <div class="file-size">🖼 ${data.fileName} • ${data.fileSize}</div>
+        <button class="download-btn" onclick="downloadFile('${data.fileData}', '${data.fileName}')">
+            ⬇ Download
+        </button>
+        <div class="time">${data.time}</div>
+    `;
         } else {
-          // Show file info with download
           div.innerHTML = `
-            <div class="name">${isMe ? "You" : data.username}</div>
-            <div class="file-info">
-                <span class="file-icon">📄</span>
-                <span class="file-name">${data.fileName}</span>
+        <div class="name">${isMe ? "You" : data.username}</div>
+        <div class="file-info">
+            <span class="file-icon">📄</span>
+            <div>
+                <div class="file-name">${data.fileName}</div>
+                <div class="file-size">${data.fileSize}</div>
             </div>
-            <button class="download-btn" onclick="downloadFile('${data.fileData}', '${data.fileName}')">
-                ⬇ Download
-            </button>
-            <div class="time">${data.time}</div>
-        `;
+        </div>
+        <button class="download-btn" onclick="downloadFile('${data.fileData}', '${data.fileName}')">
+            ⬇ Download
+        </button>
+        <div class="time">${data.time}</div>
+    `;
         }
 
         messages.appendChild(div);
@@ -612,7 +759,6 @@
         a.download = fileName;
         a.click();
       }
-
 
       // ── JOIN ──
       document.getElementById("join-btn").addEventListener("click", joinChat);
