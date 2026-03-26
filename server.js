@@ -24,6 +24,7 @@ app.get('/getip', (req, res) => {
 
 let users = {};
 let seenMessages = new Set(); // ← NEW: tracks message IDs
+let publicKeys = {}; // stores public keys of all users
 
 io.on('connection', (socket) => {
     console.log('A device connected');
@@ -32,10 +33,22 @@ io.on('connection', (socket) => {
 
     // User joins
     socket.on('user joined', (username) => {
-    users[socket.id] = username;
-    io.emit('user joined', username);
-    io.emit('online count', io.engine.clientsCount); // ← change this line
-});
+        users[socket.id] = username;
+        io.emit('user joined', username);
+        io.emit('online count', io.engine.clientsCount);
+        io.emit('user list', Object.values(users)); // ← ADD THIS
+    });
+
+    // Store public key when user shares it
+    socket.on('share public key', (data) => {
+        publicKeys[data.username] = data.publicKey;
+        console.log(`🔑 Public key received from ${data.username}`);
+        // Share this key with everyone
+        io.emit('public key shared', data);
+        // Send ALL existing keys to the new user
+        socket.emit('all public keys', publicKeys);
+    });
+
 
     // Message received
     // Message received
@@ -99,11 +112,18 @@ io.on('connection', (socket) => {
         const username = users[socket.id];
         if (username) {
             delete users[socket.id];
+            delete publicKeys[username];
             io.emit('user left', username);
+            io.emit('user list', Object.values(users)); // ← ADD THIS
         }
         io.emit('online count', io.engine.clientsCount);
+        // Get list of online users
+        socket.on('get users', () => {
+            socket.emit('user list', Object.values(users));
+        });
     });
 });
+
 
 // Show IP
 const interfaces = os.networkInterfaces();

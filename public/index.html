@@ -527,6 +527,74 @@
         font-weight: bold;
         cursor: pointer;
       }
+
+      #users-panel {
+        background: var(--surface2);
+        border-bottom: 1px solid #0f3460;
+        padding: 8px 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      #users-panel::-webkit-scrollbar {
+        display: none;
+      }
+
+      .user-chip {
+        padding: 4px 12px;
+        background: rgba(0, 212, 255, 0.1);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 20px;
+        font-size: 12px;
+        color: var(--accent);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.2s;
+      }
+
+      .user-chip:hover {
+        background: rgba(0, 212, 255, 0.25);
+        transform: scale(1.05);
+      }
+
+      .user-chip.selected {
+        background: var(--accent);
+        color: #1a1a2e;
+        font-weight: bold;
+      }
+
+      #private-indicator {
+        padding: 4px 16px;
+        font-size: 12px;
+        color: #ffaa00;
+        background: rgba(255, 170, 0, 0.1);
+        border-top: 1px solid rgba(255, 170, 0, 0.2);
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      #cancel-private {
+        background: none;
+        border: none;
+        color: #ffaa00;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+      }
+
+      .private-bubble {
+        border-left: 3px solid #ffaa00 !important;
+      }
+
+      .private-tag {
+        font-size: 10px;
+        color: #ffaa00;
+        margin-bottom: 3px;
+      }
     </style>
   </head>
   <body>
@@ -564,6 +632,17 @@
         </div>
         <div id="online-badge">🟢 <span id="online-count">1</span> online</div>
       </div>
+      <!-- ONLINE USERS PANEL -->
+      <div id="users-panel">
+        <div id="users-list"></div>
+      </div>
+
+      <div id="private-indicator">
+        <span id="private-label"
+          >🔒 Private message to: <b id="private-name"></b
+        ></span>
+        <button id="cancel-private">✕ Cancel</button>
+      </div>
 
       <div id="messages"></div>
       <div id="typing-indicator"></div>
@@ -599,6 +678,73 @@
 
     <script>
       const socket = io();
+
+      // ── CRYPTO SETUP ──
+      let myPublicKey = null;
+      let myPrivateKey = null;
+      let otherPublicKeys = {};
+      let privateTarget = null; // who we're privately messaging
+
+      // Check if encryption is supported (only works on localhost or HTTPS)
+      const encryptionSupported = window.crypto && window.crypto.subtle;
+
+      async function generateKeyPair() {
+        if (!encryptionSupported) return;
+        const keyPair = await window.crypto.subtle.generateKey(
+          {
+            name: "RSA-OAEP",
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1, 0, 1]),
+            hash: "SHA-256",
+          },
+          true,
+          ["encrypt", "decrypt"],
+        );
+        myPublicKey = keyPair.publicKey;
+        myPrivateKey = keyPair.privateKey;
+        console.log("🔑 Key pair generated!");
+      }
+
+      async function exportPublicKey(key) {
+        const exported = await window.crypto.subtle.exportKey("spki", key);
+        return btoa(String.fromCharCode(...new Uint8Array(exported)));
+      }
+
+      async function importPublicKey(keyStr) {
+        const keyData = Uint8Array.from(atob(keyStr), (c) => c.charCodeAt(0));
+        return await window.crypto.subtle.importKey(
+          "spki",
+          keyData,
+          { name: "RSA-OAEP", hash: "SHA-256" },
+          true,
+          ["encrypt"],
+        );
+      }
+
+      async function encryptMessage(message, publicKey) {
+        if (!encryptionSupported || !publicKey) return message;
+        const encoded = new TextEncoder().encode(message);
+        const encrypted = await window.crypto.subtle.encrypt(
+          { name: "RSA-OAEP" },
+          publicKey,
+          encoded,
+        );
+        return btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+      }
+
+      async function decryptMessage(encryptedMessage) {
+        if (!encryptionSupported || !myPrivateKey) return encryptedMessage;
+        const encryptedData = Uint8Array.from(atob(encryptedMessage), (c) =>
+          c.charCodeAt(0),
+        );
+        const decrypted = await window.crypto.subtle.decrypt(
+          { name: "RSA-OAEP" },
+          myPrivateKey,
+          encryptedData,
+        );
+        return new TextDecoder().decode(decrypted);
+      }
+
       let username = "";
       let typingTimeout;
 
@@ -608,11 +754,7 @@
           const response = await fetch("/getip");
           const data = await response.json();
           const url = `http://${data.ip}:${data.port}`;
-
-          // Show URL text
           document.getElementById("qr-url").textContent = url;
-
-          // Generate QR code
           new QRCode(document.getElementById("qr-code"), {
             text: url,
             width: 150,
@@ -624,11 +766,9 @@
           document.getElementById("qr-container").style.display = "none";
         }
       }
-
-      // Run on page load
       generateQR();
 
-      // Convert bytes to readable size
+      // ── FORMAT FILE SIZE ──
       function formatFileSize(bytes) {
         if (bytes < 1024) return bytes + " B";
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
@@ -654,11 +794,9 @@
           const fileData = event.target.result;
           const isImage = file.type.startsWith("image/");
 
-          // ── Show Preview Modal ──
           const modal = document.getElementById("preview-modal");
           const content = document.getElementById("preview-content");
 
-          // Show image or file icon in preview
           if (isImage) {
             content.innerHTML = `<img src="${fileData}" />`;
           } else {
@@ -671,15 +809,12 @@
           );
           modal.style.display = "flex";
 
-          // ── Cancel Button ──
           document.getElementById("preview-cancel").onclick = () => {
             modal.style.display = "none";
           };
 
-          // ── Send Button ──
           document.getElementById("preview-send").onclick = () => {
             modal.style.display = "none";
-
             const data = {
               id: generateID(),
               username: username,
@@ -694,65 +829,52 @@
               hops: 0,
               maxHops: 5,
             };
-
             addFileMessage(data, true);
             socket.emit("file message", data);
           };
         };
-
         reader.readAsDataURL(file);
         e.target.value = "";
       });
 
-      // Receive file
       socket.on("file message", (data) => {
         addFileMessage(data, false);
         playSound();
-        // Relay forward
         socket.emit("file message", data);
       });
 
-      // Add file message to chat
       function addFileMessage(data, isMe) {
         const messages = document.getElementById("messages");
         const div = document.createElement("div");
         div.classList.add("file-message", isMe ? "mine" : "others");
-
         const isImage = data.fileType.startsWith("image/");
-
         if (isImage) {
           div.innerHTML = `
-        <div class="name">${isMe ? "You" : data.username}</div>
-        <img src="${data.fileData}" alt="${data.fileName}" 
-             onclick="window.open('${data.fileData}', '_blank')" />
-        <div class="file-size">🖼 ${data.fileName} • ${data.fileSize}</div>
-        <button class="download-btn" onclick="downloadFile('${data.fileData}', '${data.fileName}')">
-            ⬇ Download
-        </button>
-        <div class="time">${data.time}</div>
-    `;
+                <div class="name">${isMe ? "You" : data.username}</div>
+                <img src="${data.fileData}" alt="${data.fileName}"
+                     onclick="window.open('${data.fileData}', '_blank')" />
+                <div class="file-size">🖼 ${data.fileName} • ${data.fileSize}</div>
+                <button class="download-btn" onclick="downloadFile('${data.fileData}', '${data.fileName}')">⬇ Download</button>
+                <div class="time">${data.time}</div>
+            `;
         } else {
           div.innerHTML = `
-        <div class="name">${isMe ? "You" : data.username}</div>
-        <div class="file-info">
-            <span class="file-icon">📄</span>
-            <div>
-                <div class="file-name">${data.fileName}</div>
-                <div class="file-size">${data.fileSize}</div>
-            </div>
-        </div>
-        <button class="download-btn" onclick="downloadFile('${data.fileData}', '${data.fileName}')">
-            ⬇ Download
-        </button>
-        <div class="time">${data.time}</div>
-    `;
+                <div class="name">${isMe ? "You" : data.username}</div>
+                <div class="file-info">
+                    <span class="file-icon">📄</span>
+                    <div>
+                        <div class="file-name">${data.fileName}</div>
+                        <div class="file-size">${data.fileSize}</div>
+                    </div>
+                </div>
+                <button class="download-btn" onclick="downloadFile('${data.fileData}', '${data.fileName}')">⬇ Download</button>
+                <div class="time">${data.time}</div>
+            `;
         }
-
         messages.appendChild(div);
         messages.scrollTop = messages.scrollHeight;
       }
 
-      // Download helper
       function downloadFile(fileData, fileName) {
         const a = document.createElement("a");
         a.href = fileData;
@@ -768,16 +890,41 @@
           if (e.key === "Enter") joinChat();
         });
 
-      function joinChat() {
-        const input = document.getElementById("username-input").value.trim();
-        if (!input) return;
-        username = input;
-        document.getElementById("join-screen").style.display = "none";
-        document.getElementById("chat-screen").style.display = "flex";
-        socket.emit("user joined", username);
+      async function joinChat() {
+        try {
+          const input = document.getElementById("username-input").value.trim();
+          if (!input) return;
+          username = input;
+
+          document.getElementById("join-screen").style.display = "none";
+          document.getElementById("chat-screen").style.display = "flex";
+
+          if (encryptionSupported) {
+            console.log("🔐 Encryption supported — generating keys...");
+            await generateKeyPair();
+            const publicKeyStr = await exportPublicKey(myPublicKey);
+            socket.emit("share public key", {
+              username: username,
+              publicKey: publicKeyStr,
+            });
+            console.log("🔑 Keys generated and shared!");
+          } else {
+            // HTTP connection — crypto not available
+            console.warn("⚠️ Encryption not available on HTTP");
+            document.getElementById("header-sub").textContent =
+              "⚠️ No Encryption (HTTP)";
+            document.getElementById("header-sub").style.color = "#ffaa00";
+          }
+
+          socket.emit("user joined", username);
+          console.log("✅ Joined as", username);
+        } catch (err) {
+          console.error("❌ Join failed:", err);
+          alert("Something went wrong: " + err.message);
+        }
       }
 
-      // ── GENERATE UNIQUE ID ──
+      // ── GENERATE ID ──
       function generateID() {
         return Math.random().toString(36).substr(2, 9) + Date.now();
       }
@@ -792,11 +939,12 @@
           if (e.key === "Enter") sendMessage();
         });
 
-      function sendMessage() {
+      async function sendMessage() {
         const input = document.getElementById("message-input");
         const text = input.value.trim();
         if (!text) return;
-        const data = {
+
+        const baseData = {
           id: generateID(),
           username: username,
           text: text,
@@ -808,27 +956,154 @@
           maxHops: 5,
         };
 
-        addMessage(data, true); // ← must be BEFORE input.value = ''
-        socket.emit("chat message", data);
+        if (privateTarget) {
+          // ── PRIVATE MESSAGE ──
+          const privateData = {
+            ...baseData,
+            private: true,
+            to: privateTarget,
+          };
+
+          // Show on my screen
+          addMessage(
+            { ...privateData, text: `🔒 Private to ${privateTarget}: ${text}` },
+            true,
+            true,
+          );
+
+          // Encrypt if possible
+          if (encryptionSupported && otherPublicKeys[privateTarget]) {
+            const encryptedText = await encryptMessage(
+              text,
+              otherPublicKeys[privateTarget],
+            );
+            socket.emit("chat message", {
+              ...privateData,
+              text: encryptedText,
+              encrypted: true,
+            });
+          } else {
+            socket.emit("chat message", privateData);
+          }
+        } else {
+          // ── GROUP MESSAGE ──
+          addMessage(baseData, true);
+
+          if (encryptionSupported && Object.keys(otherPublicKeys).length > 0) {
+            for (const [user, publicKey] of Object.entries(otherPublicKeys)) {
+              try {
+                const encryptedText = await encryptMessage(text, publicKey);
+                socket.emit("chat message", {
+                  ...baseData,
+                  id: generateID(),
+                  text: encryptedText,
+                  encrypted: true,
+                  to: user,
+                });
+              } catch (err) {
+                console.error(`Encryption failed for ${user}:`, err);
+              }
+            }
+          } else {
+            socket.emit("chat message", baseData);
+          }
+        }
+
         socket.emit("stop typing");
-        input.value = ""; // ← clears AFTER
+        input.value = "";
       }
 
       // ── RECEIVE MESSAGE ──
-      // This only fires for messages from OTHER people
-      // because server uses socket.broadcast.emit
-      socket.on("chat message", (data) => {
-        // Show message on screen
-        addMessage(data, false);
+      socket.on("chat message", async (data) => {
+        // Not for me — relay and stop
+        if (data.to && data.to !== username) {
+          socket.emit("chat message", data);
+          return;
+        }
+
+        let messageText = data.text;
+
+        // Decrypt if needed
+        if (data.encrypted && encryptionSupported) {
+          try {
+            messageText = await decryptMessage(data.text);
+          } catch (err) {
+            messageText = "🔒 Could not decrypt";
+          }
+        }
+
+        const displayData = { ...data, text: messageText };
+
+        // Show with private styling if private message
+        addMessage(displayData, false, data.private);
         playSound();
 
-        // Relay forward — this device now acts as a node
+        // Relay forward
         socket.emit("chat message", data);
       });
 
       // ── RELAY CONFIRMATION ──
       socket.on("message relayed", (data) => {
         console.log(`✅ Relayed — hop ${data.hops}`);
+      });
+
+      // ── PUBLIC KEY SHARING ──
+      socket.on("public key shared", async (data) => {
+        if (data.username !== username) {
+          otherPublicKeys[data.username] = await importPublicKey(
+            data.publicKey,
+          );
+          console.log(`🔑 Got public key from ${data.username}`);
+        }
+      });
+
+      // ── USER LIST ──
+      socket.on("user list", (userList) => {
+        const panel = document.getElementById("users-list");
+        panel.innerHTML = "";
+        userList.forEach((user) => {
+          if (user === username) return; // skip yourself
+          const chip = document.createElement("div");
+          chip.classList.add("user-chip");
+          chip.textContent = "👤 " + user;
+          chip.addEventListener("click", () => {
+            // Select private target
+            privateTarget = user;
+            document
+              .querySelectorAll(".user-chip")
+              .forEach((c) => c.classList.remove("selected"));
+            chip.classList.add("selected");
+            // Show indicator
+            document.getElementById("private-name").textContent = user;
+            document.getElementById("private-indicator").style.display = "flex";
+            document.getElementById("message-input").placeholder =
+              `Private to ${user}...`;
+            document.getElementById("message-input").focus();
+          });
+          panel.appendChild(chip);
+        });
+      });
+
+      // Cancel private message
+      document
+        .getElementById("cancel-private")
+        .addEventListener("click", () => {
+          privateTarget = null;
+          document
+            .querySelectorAll(".user-chip")
+            .forEach((c) => c.classList.remove("selected"));
+          document.getElementById("private-indicator").style.display = "none";
+          document.getElementById("message-input").placeholder =
+            "Type a message...";
+        });
+
+      socket.on("all public keys", async (keys) => {
+        for (const [user, keyStr] of Object.entries(keys)) {
+          if (user !== username) {
+            otherPublicKeys[user] = await importPublicKey(keyStr);
+            console.log(`🔑 Imported key for ${user}`);
+          }
+        }
       });
 
       // ── TYPING INDICATOR ──
@@ -850,15 +1125,17 @@
       });
 
       // ── ADD MESSAGE TO SCREEN ──
-      function addMessage(data, isMe) {
+      function addMessage(data, isMe, isPrivate = false) {
         const messages = document.getElementById("messages");
         const div = document.createElement("div");
         div.classList.add("message", isMe ? "mine" : "others");
+        if (data.private || isPrivate) div.classList.add("private-bubble");
         div.innerHTML = `
-            <div class="name">${isMe ? "You" : data.username}</div>
-            <div>${data.text}</div>
-            <div class="time">${data.time}</div>
-        `;
+        ${data.private || isPrivate ? `<div class="private-tag">🔒 Private</div>` : ""}
+        <div class="name">${isMe ? "You" : data.username}</div>
+        <div>${data.text}</div>
+        <div class="time">${data.time}</div>
+    `;
         messages.appendChild(div);
         messages.scrollTop = messages.scrollHeight;
       }
