@@ -595,6 +595,105 @@
         color: #ffaa00;
         margin-bottom: 3px;
       }
+
+      /* ── LOCK ICON ── */
+      .msg-lock {
+        font-size: 10px;
+        margin-left: 4px;
+        opacity: 0.75;
+        vertical-align: middle;
+        user-select: none;
+        cursor: default;
+      }
+      /* ── EMOJI REACTIONS ── */
+      .reaction-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+      }
+
+      .reaction-btn:hover {
+        background: rgba(255, 255, 255, 0.18);
+        transform: scale(1.15);
+      }
+
+      .reaction-btn.mine {
+        border-color: var(--accent);
+        background: rgba(0, 212, 255, 0.15);
+      }
+
+      .reaction-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 6px;
+      }
+
+      .reaction-pill {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        padding: 2px 8px;
+        font-size: 12px;
+        cursor: default;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        transition: transform 0.15s;
+      }
+
+      .reaction-pill.reacted-by-me {
+        border-color: var(--accent);
+        background: rgba(0, 212, 255, 0.15);
+      }
+
+      .reaction-pill .pill-count {
+        font-size: 11px;
+        opacity: 0.85;
+      }
+
+      .emoji-picker {
+        display: none;
+        gap: 6px;
+        margin-top: 6px;
+        background: var(--surface2);
+        border: 1px solid #0f3460;
+        border-radius: 20px;
+        padding: 6px 10px;
+        width: fit-content;
+        position: relative;
+        z-index: 10;
+      }
+
+      .emoji-picker span {
+        font-size: 18px;
+        cursor: pointer;
+        transition: transform 0.15s;
+        user-select: none;
+        display: inline-block;
+      }
+
+      .emoji-picker span:hover {
+        transform: scale(1.3);
+      }
+
+      .emoji-picker span.already-mine {
+        outline: 2px solid var(--accent);
+        border-radius: 4px;
+      }
+
+      .emoji-picker span {
+        font-size: 18px;
+        cursor: pointer;
+        transition: transform 0.15s;
+        user-select: none;
+      }
+
+      .emoji-picker span:hover {
+        transform: scale(1.3);
+      }
     </style>
   </head>
   <body>
@@ -753,7 +852,7 @@
         try {
           const response = await fetch("/getip");
           const data = await response.json();
-          const url = `http://${data.ip}:${data.port}`;
+          const url = `https://${data.ip}:${data.port}`;
           document.getElementById("qr-url").textContent = url;
           new QRCode(document.getElementById("qr-code"), {
             text: url,
@@ -964,15 +1063,21 @@
             to: privateTarget,
           };
 
-          // Show on my screen
+          // Show on my screen — mark as encrypted if we have their key
+          const willEncrypt =
+            encryptionSupported && otherPublicKeys[privateTarget];
           addMessage(
-            { ...privateData, text: `🔒 Private to ${privateTarget}: ${text}` },
+            {
+              ...privateData,
+              text: `🔒 Private to ${privateTarget}: ${text}`,
+              encrypted: willEncrypt,
+            },
             true,
             true,
           );
 
           // Encrypt if possible
-          if (encryptionSupported && otherPublicKeys[privateTarget]) {
+          if (willEncrypt) {
             const encryptedText = await encryptMessage(
               text,
               otherPublicKeys[privateTarget],
@@ -987,9 +1092,12 @@
           }
         } else {
           // ── GROUP MESSAGE ──
-          addMessage(baseData, true);
+          // My own copy: encrypted = true only if we actually have keys to send to
+          const hasRecipients =
+            encryptionSupported && Object.keys(otherPublicKeys).length > 0;
+          addMessage({ ...baseData, encrypted: hasRecipients }, true);
 
-          if (encryptionSupported && Object.keys(otherPublicKeys).length > 0) {
+          if (hasRecipients) {
             for (const [user, publicKey] of Object.entries(otherPublicKeys)) {
               try {
                 const encryptedText = await encryptMessage(text, publicKey);
@@ -1125,20 +1233,106 @@
       });
 
       // ── ADD MESSAGE TO SCREEN ──
+      // ── ADD MESSAGE TO SCREEN ──
       function addMessage(data, isMe, isPrivate = false) {
         const messages = document.getElementById("messages");
         const div = document.createElement("div");
         div.classList.add("message", isMe ? "mine" : "others");
         if (data.private || isPrivate) div.classList.add("private-bubble");
+
+        const msgId = data.id || generateID();
+        div.setAttribute("data-msgid", msgId);
+
+        const isEncrypted = data.encrypted === true;
+        const lockEmoji = isEncrypted ? "🔒" : "🔓";
+        const lockColor = isEncrypted ? "#4caf50" : "#f44336";
+        const lockTitle = isEncrypted
+          ? "End-to-end encrypted"
+          : "Not encrypted";
+
         div.innerHTML = `
         ${data.private || isPrivate ? `<div class="private-tag">🔒 Private</div>` : ""}
         <div class="name">${isMe ? "You" : data.username}</div>
-        <div>${data.text}</div>
-        <div class="time">${data.time}</div>
+        <div class="msg-text">${data.text}</div>
+        <div class="time">
+            ${data.time}
+            <span class="msg-lock" style="color:${lockColor}" title="${lockTitle}">${lockEmoji}</span>
+        </div>
+        <div class="emoji-picker">
+            <span data-emoji="👍">👍</span>
+            <span data-emoji="❤️">❤️</span>
+            <span data-emoji="😂">😂</span>
+            <span data-emoji="😮">😮</span>
+            <span data-emoji="😢">😢</span>
+            <span data-emoji="🔥">🔥</span>
+        </div>
+        <div class="reaction-bar"></div>
     `;
+
+        div.addEventListener("click", (e) => {
+          if (
+            e.target.closest(".emoji-picker") ||
+            e.target.closest(".reaction-bar")
+          )
+            return;
+          openPicker(div);
+        });
+
+        div.querySelector(".emoji-picker").addEventListener("click", (e) => {
+          const emojiSpan = e.target.closest("[data-emoji]");
+          if (!emojiSpan) return;
+          const emoji = emojiSpan.dataset.emoji;
+
+          // Find if I already reacted on this bubble
+          const bar = div.querySelector(".reaction-bar");
+          let previousEmoji = null;
+          bar.querySelectorAll(".reaction-pill").forEach((pill) => {
+            if (pill.dataset.reactedByMe === "true") {
+              previousEmoji = pill.dataset.emoji;
+            }
+          });
+
+          // Don't emit if clicking the same emoji again — just close picker
+          if (previousEmoji === emoji) {
+            div.querySelector(".emoji-picker").style.display = "none";
+            return;
+          }
+
+          socket.emit("reaction", {
+            messageId: msgId,
+            emoji,
+            username,
+            previousEmoji,
+          });
+          div.querySelector(".emoji-picker").style.display = "none";
+        });
+
         messages.appendChild(div);
         messages.scrollTop = messages.scrollHeight;
       }
+      function openPicker(div) {
+        const picker = div.querySelector(".emoji-picker");
+        const isOpen = picker.style.display === "flex";
+
+        // Close all pickers first
+        document
+          .querySelectorAll(".emoji-picker")
+          .forEach((p) => (p.style.display = "none"));
+
+        // If it wasn't open, open it — clicking same bubble again closes it
+        if (!isOpen) {
+          picker.style.display = "flex";
+        }
+      }
+
+      // Close picker if user taps anywhere outside a bubble
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(".message")) {
+          document
+            .querySelectorAll(".emoji-picker")
+            .forEach((p) => (p.style.display = "none"));
+        }
+      });
 
       // ── SYSTEM MESSAGES ──
       socket.on("user joined", (name) => {
@@ -1148,6 +1342,71 @@
       socket.on("user left", (name) => {
         addSystemMessage(`${name} left the chat`);
       });
+
+      // ── RECEIVE REACTION ──
+      socket.on("reaction", (data) => {
+        const bubble = document.querySelector(
+          `[data-msgid="${data.messageId}"]`,
+        );
+        if (!bubble) return;
+
+        const bar = bubble.querySelector(".reaction-bar");
+
+        // ── STEP 1: Remove previous reaction by this user if they changed it ──
+        if (data.previousEmoji) {
+          const prevPill = bar.querySelector(
+            `.reaction-pill[data-emoji="${data.previousEmoji}"]`,
+          );
+          if (prevPill) {
+            const prevCount = parseInt(prevPill.dataset.count) - 1;
+            if (prevCount <= 0) {
+              prevPill.remove();
+            } else {
+              prevPill.dataset.count = prevCount;
+              prevPill.querySelector(".pill-count").textContent = prevCount;
+              if (data.username === username) {
+                prevPill.dataset.reactedByMe = "false";
+                prevPill.classList.remove("reacted-by-me");
+              }
+            }
+          }
+        }
+
+        // ── STEP 2: Add or increment new reaction ──
+        const existing = bar.querySelector(
+          `.reaction-pill[data-emoji="${data.emoji}"]`,
+        );
+        if (existing) {
+          const newCount = parseInt(existing.dataset.count) + 1;
+          existing.dataset.count = newCount;
+          existing.querySelector(".pill-count").textContent = newCount;
+          if (data.username === username) {
+            existing.dataset.reactedByMe = "true";
+            existing.classList.add("reacted-by-me");
+          }
+        } else {
+          const pill = document.createElement("div");
+          pill.classList.add("reaction-pill");
+          pill.dataset.emoji = data.emoji;
+          pill.dataset.count = "1";
+          if (data.username === username) {
+            pill.dataset.reactedByMe = "true";
+            pill.classList.add("reacted-by-me");
+          }
+          pill.innerHTML = `<span>${data.emoji}</span><span class="pill-count">1</span>`;
+          bar.appendChild(pill);
+        }
+
+        // ── STEP 3: Highlight current user's emoji in picker ──
+        if (data.username === username) {
+          bubble.querySelectorAll(".emoji-picker span").forEach((span) => {
+            span.classList.remove("already-mine");
+            if (span.dataset.emoji === data.emoji) {
+              span.classList.add("already-mine");
+            }
+          });
+        }
+      });   
 
       function addSystemMessage(text) {
         const messages = document.getElementById("messages");
