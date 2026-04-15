@@ -52,24 +52,58 @@ io.on('connection', (socket) => {
         socket.emit('all public keys', publicKeys);
     });
 
+    // ── READ RECEIPTS ──
+    socket.on('message delivered', (data) => {
+        // data = { messageId, deliveredTo }
+        // Tell the original sender their message was delivered
+        // Find which socket is the sender
+        const senderSocketId = Object.keys(users).find(
+            id => users[id] === data.sentBy
+        );
+        if (senderSocketId) {
+            io.to(senderSocketId).emit('delivery confirmed', {
+                messageId: data.messageId
+            });
+        }
+    });
+
+    // ── SEEN CONFIRMED → blue double tick ──
+    socket.on('message seen confirmed', (data) => {
+        const statusEl = document.querySelector(`[data-msgid-status="${data.messageId}"]`);
+        if (statusEl) {
+            statusEl.classList.remove('sending', 'sent', 'delivered');
+            statusEl.classList.add('seen');
+            statusEl.textContent = '✓✓';
+            statusEl.title = 'Seen';
+        }
+    });
+
     socket.on('reaction', (data) => {
     io.emit('reaction', data);
 });
 
     socket.on('chat message', (data) => {
-        if (seenMessages.has(data.id)) {
-            console.log('Duplicate ignored:', data.id);
+        // For encrypted targeted messages — use id+to as unique key
+        const dedupKey = data.to ? `${data.id}_${data.to}` : data.id;
+
+        if (seenMessages.has(dedupKey)) {
+            console.log('Duplicate ignored:', dedupKey);
             return;
         }
         if (data.hops >= data.maxHops) {
             console.log('Max hops reached — message stopped:', data.id);
             return;
         }
-        seenMessages.add(data.id);
+        seenMessages.add(dedupKey);
         data.hops = data.hops + 1;
         console.log(`📨 Message ${data.id} — hop ${data.hops}/${data.maxHops}`);
         socket.broadcast.emit('chat message', data);
         socket.emit('message relayed', { id: data.id, hops: data.hops });
+        socket.emit('message seen', {
+            messageId: data.id,
+            sentBy: data.username
+        });
+        console.log('👁️ Emitted seen for:', data.id, 'sentBy:', data.username);
     });
 
     socket.on('file message', (data) => {
@@ -106,6 +140,18 @@ io.on('connection', (socket) => {
         }
         io.emit('online count', io.engine.clientsCount);
     });
+
+    socket.on('message seen', (data) => {
+        const senderSocketId = Object.keys(users).find(
+            id => users[id] === data.sentBy
+        );
+        if (senderSocketId) {
+            io.to(senderSocketId).emit('message seen confirmed', {
+                messageId: data.messageId
+            });
+        }
+    });
+
 });
 
 const interfaces = os.networkInterfaces();

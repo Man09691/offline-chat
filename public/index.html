@@ -605,6 +605,25 @@
         user-select: none;
         cursor: default;
       }
+
+      /* ── SEARCH HIGHLIGHT ── */
+      .search-hidden {
+        opacity: 0.15;
+        transition: opacity 0.2s;
+      }
+
+      .search-match {
+        opacity: 1 !important;
+        transition: opacity 0.2s;
+      }
+
+      mark {
+        background: #ffdd00;
+        color: #000000;
+        border-radius: 3px;
+        padding: 0 2px;
+      }
+
       /* ── EMOJI REACTIONS ── */
       .reaction-bar {
         display: flex;
@@ -694,6 +713,52 @@
       .emoji-picker span:hover {
         transform: scale(1.3);
       }
+
+      /* ── NEW USER HIGHLIGHT DURING SEARCH ── */
+      .user-chip.new-arrival {
+        background: rgba(123, 47, 255, 0.35);
+        border-color: var(--accent2);
+        color: #ffffff;
+        animation: chipPulse 1s ease infinite;
+      }
+
+      @keyframes chipPulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0px rgba(123, 47, 255, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 10px rgba(123, 47, 255, 0.9);
+        }
+      }
+
+      /* ── READ RECEIPTS ── */
+      .msg-status {
+        font-size: 11px;
+        margin-left: 4px;
+        font-weight: bold;
+        transition: color 0.3s;
+      }
+
+      /* Sending → grey single tick */
+      .msg-status.sending {
+        color: #888888;
+      }
+
+      /* Sent → white single tick */
+      .msg-status.sent {
+        color: #ffffff;
+      }
+
+      /* Delivered → grey double tick */
+      .msg-status.delivered {
+        color: #888888;
+      }
+
+      /* Seen → blue double tick */
+      .msg-status.seen {
+        color: #4fc3f7;
+      }
     </style>
   </head>
   <body>
@@ -729,8 +794,70 @@
             <div id="header-sub">No Internet Used</div>
           </div>
         </div>
-        <div id="online-badge">🟢 <span id="online-count">1</span> online</div>
+        <div style="display: flex; align-items: center; gap: 8px">
+          <button
+            id="search-btn"
+            style="
+              background: none;
+              border: none;
+              color: var(--accent);
+              font-size: 18px;
+              cursor: pointer;
+              padding: 4px 8px;
+              border-radius: 50%;
+              transition: background 0.2s;
+            "
+          >
+            🔍
+          </button>
+          <div id="online-badge">
+            🟢 <span id="online-count">1</span> online
+          </div>
+        </div>
       </div>
+
+      <!-- SEARCH BAR -->
+      <div
+        id="search-bar"
+        style="
+          display: none;
+          padding: 8px 16px;
+          background: var(--surface2);
+          border-bottom: 1px solid #0f3460;
+          gap: 8px;
+          align-items: center;
+        "
+      >
+        <input
+          id="search-input"
+          type="text"
+          placeholder="Search messages or names..."
+          style="
+            flex: 1;
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--accent);
+            background: var(--surface);
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+          "
+        />
+        <button
+          id="search-clear"
+          style="
+            background: none;
+            border: none;
+            color: var(--subtext);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 4px;
+          "
+        >
+          ✕
+        </button>
+      </div>
+
       <!-- ONLINE USERS PANEL -->
       <div id="users-panel">
         <div id="users-list"></div>
@@ -782,9 +909,8 @@
       let myPublicKey = null;
       let myPrivateKey = null;
       let otherPublicKeys = {};
-      let privateTarget = null; // who we're privately messaging
+      let privateTarget = null;
 
-      // Check if encryption is supported (only works on localhost or HTTPS)
       const encryptionSupported = window.crypto && window.crypto.subtle;
 
       async function generateKeyPair() {
@@ -1008,7 +1134,6 @@
             });
             console.log("🔑 Keys generated and shared!");
           } else {
-            // HTTP connection — crypto not available
             console.warn("⚠️ Encryption not available on HTTP");
             document.getElementById("header-sub").textContent =
               "⚠️ No Encryption (HTTP)";
@@ -1057,15 +1182,10 @@
 
         if (privateTarget) {
           // ── PRIVATE MESSAGE ──
-          const privateData = {
-            ...baseData,
-            private: true,
-            to: privateTarget,
-          };
-
-          // Show on my screen — mark as encrypted if we have their key
+          const privateData = { ...baseData, private: true, to: privateTarget };
           const willEncrypt =
             encryptionSupported && otherPublicKeys[privateTarget];
+
           addMessage(
             {
               ...privateData,
@@ -1076,7 +1196,6 @@
             true,
           );
 
-          // Encrypt if possible
           if (willEncrypt) {
             const encryptedText = await encryptMessage(
               text,
@@ -1092,7 +1211,6 @@
           }
         } else {
           // ── GROUP MESSAGE ──
-          // My own copy: encrypted = true only if we actually have keys to send to
           const hasRecipients =
             encryptionSupported && Object.keys(otherPublicKeys).length > 0;
           addMessage({ ...baseData, encrypted: hasRecipients }, true);
@@ -1103,7 +1221,7 @@
                 const encryptedText = await encryptMessage(text, publicKey);
                 socket.emit("chat message", {
                   ...baseData,
-                  id: generateID(),
+                  id: baseData.id, // ← use SAME id as display bubble
                   text: encryptedText,
                   encrypted: true,
                   to: user,
@@ -1121,9 +1239,9 @@
         input.value = "";
       }
 
-      // ── RECEIVE MESSAGE ──
+      // ── RECEIVE MESSAGE — SINGLE LISTENER ONLY ✅ ──
       socket.on("chat message", async (data) => {
-        // Not for me — relay and stop
+        // Not for me → relay and stop
         if (data.to && data.to !== username) {
           socket.emit("chat message", data);
           return;
@@ -1141,18 +1259,45 @@
         }
 
         const displayData = { ...data, text: messageText };
-
-        // Show with private styling if private message
         addMessage(displayData, false, data.private);
         playSound();
 
-        // Relay forward
+        // Tell sender message was delivered
+        socket.emit("message delivered", {
+          messageId: data.id,
+          sentBy: data.username,
+          deliveredTo: username,
+        });
+
+        // Relay forward with original encrypted data
         socket.emit("chat message", data);
       });
 
       // ── RELAY CONFIRMATION ──
       socket.on("message relayed", (data) => {
         console.log(`✅ Relayed — hop ${data.hops}`);
+        const statusEl = document.querySelector(
+          `[data-msgid-status="${data.id}"]`,
+        );
+        if (statusEl) {
+          statusEl.classList.remove("sending");
+          statusEl.classList.add("sent");
+          statusEl.textContent = "✓";
+          statusEl.title = "Sent";
+        }
+      });
+
+      // ── DELIVERY CONFIRMED ──
+      socket.on("delivery confirmed", (data) => {
+        const statusEl = document.querySelector(
+          `[data-msgid-status="${data.messageId}"]`,
+        );
+        if (statusEl) {
+          statusEl.classList.remove("sending", "sent");
+          statusEl.classList.add("delivered");
+          statusEl.textContent = "✓✓";
+          statusEl.title = "Delivered";
+        }
       });
 
       // ── PUBLIC KEY SHARING ──
@@ -1165,34 +1310,57 @@
         }
       });
 
+      socket.on("all public keys", async (keys) => {
+        for (const [user, keyStr] of Object.entries(keys)) {
+          if (user !== username) {
+            otherPublicKeys[user] = await importPublicKey(keyStr);
+            console.log(`🔑 Imported key for ${user}`);
+          }
+        }
+      });
+
       // ── USER LIST ──
+      let knownUsers = new Set();
+
       socket.on("user list", (userList) => {
         const panel = document.getElementById("users-list");
+        const isSearchOpen =
+          document.getElementById("search-bar").style.display === "flex";
         panel.innerHTML = "";
+
         userList.forEach((user) => {
-          if (user === username) return; // skip yourself
+          if (user === username) return;
+
           const chip = document.createElement("div");
           chip.classList.add("user-chip");
           chip.textContent = "👤 " + user;
+
+          if (isSearchOpen && !knownUsers.has(user)) {
+            chip.classList.add("new-arrival");
+            setTimeout(() => chip.classList.remove("new-arrival"), 5000);
+          }
+
           chip.addEventListener("click", () => {
-            // Select private target
+            chip.classList.remove("new-arrival");
             privateTarget = user;
             document
               .querySelectorAll(".user-chip")
               .forEach((c) => c.classList.remove("selected"));
             chip.classList.add("selected");
-            // Show indicator
             document.getElementById("private-name").textContent = user;
             document.getElementById("private-indicator").style.display = "flex";
             document.getElementById("message-input").placeholder =
               `Private to ${user}...`;
             document.getElementById("message-input").focus();
           });
+
           panel.appendChild(chip);
         });
+
+        knownUsers = new Set(userList.filter((u) => u !== username));
       });
 
-      // Cancel private message
+      // Cancel private
       document
         .getElementById("cancel-private")
         .addEventListener("click", () => {
@@ -1204,15 +1372,6 @@
           document.getElementById("message-input").placeholder =
             "Type a message...";
         });
-
-      socket.on("all public keys", async (keys) => {
-        for (const [user, keyStr] of Object.entries(keys)) {
-          if (user !== username) {
-            otherPublicKeys[user] = await importPublicKey(keyStr);
-            console.log(`🔑 Imported key for ${user}`);
-          }
-        }
-      });
 
       // ── TYPING INDICATOR ──
       document.getElementById("message-input").addEventListener("input", () => {
@@ -1233,7 +1392,6 @@
       });
 
       // ── ADD MESSAGE TO SCREEN ──
-      // ── ADD MESSAGE TO SCREEN ──
       function addMessage(data, isMe, isPrivate = false) {
         const messages = document.getElementById("messages");
         const div = document.createElement("div");
@@ -1250,24 +1408,29 @@
           ? "End-to-end encrypted"
           : "Not encrypted";
 
+        const statusHTML = isMe
+          ? `<span class="msg-status sending" data-msgid-status="${msgId}">✓</span>`
+          : "";
+
         div.innerHTML = `
-        ${data.private || isPrivate ? `<div class="private-tag">🔒 Private</div>` : ""}
-        <div class="name">${isMe ? "You" : data.username}</div>
-        <div class="msg-text">${data.text}</div>
-        <div class="time">
-            ${data.time}
-            <span class="msg-lock" style="color:${lockColor}" title="${lockTitle}">${lockEmoji}</span>
-        </div>
-        <div class="emoji-picker">
-            <span data-emoji="👍">👍</span>
-            <span data-emoji="❤️">❤️</span>
-            <span data-emoji="😂">😂</span>
-            <span data-emoji="😮">😮</span>
-            <span data-emoji="😢">😢</span>
-            <span data-emoji="🔥">🔥</span>
-        </div>
-        <div class="reaction-bar"></div>
-    `;
+            ${data.private || isPrivate ? `<div class="private-tag">🔒 Private</div>` : ""}
+            <div class="name">${isMe ? "You" : data.username}</div>
+            <div class="msg-text">${data.text}</div>
+            <div class="time">
+                ${data.time}
+                <span class="msg-lock" style="color:${lockColor}" title="${lockTitle}">${lockEmoji}</span>
+                ${statusHTML}
+            </div>
+            <div class="emoji-picker">
+                <span data-emoji="👍">👍</span>
+                <span data-emoji="❤️">❤️</span>
+                <span data-emoji="😂">😂</span>
+                <span data-emoji="😮">😮</span>
+                <span data-emoji="😢">😢</span>
+                <span data-emoji="🔥">🔥</span>
+            </div>
+            <div class="reaction-bar"></div>
+        `;
 
         div.addEventListener("click", (e) => {
           if (
@@ -1283,7 +1446,6 @@
           if (!emojiSpan) return;
           const emoji = emojiSpan.dataset.emoji;
 
-          // Find if I already reacted on this bubble
           const bar = div.querySelector(".reaction-bar");
           let previousEmoji = null;
           bar.querySelectorAll(".reaction-pill").forEach((pill) => {
@@ -1292,7 +1454,6 @@
             }
           });
 
-          // Don't emit if clicking the same emoji again — just close picker
           if (previousEmoji === emoji) {
             div.querySelector(".emoji-picker").style.display = "none";
             return;
@@ -1310,22 +1471,16 @@
         messages.appendChild(div);
         messages.scrollTop = messages.scrollHeight;
       }
+
       function openPicker(div) {
         const picker = div.querySelector(".emoji-picker");
         const isOpen = picker.style.display === "flex";
-
-        // Close all pickers first
         document
           .querySelectorAll(".emoji-picker")
           .forEach((p) => (p.style.display = "none"));
-
-        // If it wasn't open, open it — clicking same bubble again closes it
-        if (!isOpen) {
-          picker.style.display = "flex";
-        }
+        if (!isOpen) picker.style.display = "flex";
       }
 
-      // Close picker if user taps anywhere outside a bubble
       document.addEventListener("click", (e) => {
         if (!e.target.closest(".message")) {
           document
@@ -1343,7 +1498,7 @@
         addSystemMessage(`${name} left the chat`);
       });
 
-      // ── RECEIVE REACTION ──
+      // ── REACTIONS ──
       socket.on("reaction", (data) => {
         const bubble = document.querySelector(
           `[data-msgid="${data.messageId}"]`,
@@ -1352,7 +1507,6 @@
 
         const bar = bubble.querySelector(".reaction-bar");
 
-        // ── STEP 1: Remove previous reaction by this user if they changed it ──
         if (data.previousEmoji) {
           const prevPill = bar.querySelector(
             `.reaction-pill[data-emoji="${data.previousEmoji}"]`,
@@ -1372,7 +1526,6 @@
           }
         }
 
-        // ── STEP 2: Add or increment new reaction ──
         const existing = bar.querySelector(
           `.reaction-pill[data-emoji="${data.emoji}"]`,
         );
@@ -1397,16 +1550,14 @@
           bar.appendChild(pill);
         }
 
-        // ── STEP 3: Highlight current user's emoji in picker ──
         if (data.username === username) {
           bubble.querySelectorAll(".emoji-picker span").forEach((span) => {
             span.classList.remove("already-mine");
-            if (span.dataset.emoji === data.emoji) {
+            if (span.dataset.emoji === data.emoji)
               span.classList.add("already-mine");
-            }
           });
         }
-      });   
+      });
 
       function addSystemMessage(text) {
         const messages = document.getElementById("messages");
@@ -1436,6 +1587,105 @@
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + 0.3);
       }
+
+      // ── MESSAGE SEARCH ──
+      const searchBtn = document.getElementById("search-btn");
+      const searchBar = document.getElementById("search-bar");
+      const searchInput = document.getElementById("search-input");
+      const searchClear = document.getElementById("search-clear");
+
+      searchBtn.addEventListener("click", () => {
+        const isOpen = searchBar.style.display === "flex";
+        if (isOpen) {
+          closeSearch();
+        } else {
+          searchBar.style.display = "flex";
+          searchInput.focus();
+        }
+      });
+
+      searchClear.addEventListener("click", closeSearch);
+
+      function closeSearch() {
+        searchBar.style.display = "none";
+        searchInput.value = "";
+        resetSearch();
+      }
+
+      function resetSearch() {
+        document.querySelectorAll(".message").forEach((msg) => {
+          msg.classList.remove("search-hidden", "search-match");
+          const textDiv = msg.querySelector(".msg-text");
+          if (textDiv && textDiv.dataset.original) {
+            textDiv.innerHTML = textDiv.dataset.original;
+          }
+          const nameDiv = msg.querySelector(".name");
+          if (nameDiv && nameDiv.dataset.original) {
+            nameDiv.innerHTML = nameDiv.dataset.original;
+          }
+        });
+      }
+
+      searchInput.addEventListener("input", () => {
+        const query = searchInput.value.trim().toLowerCase();
+        if (!query) {
+          resetSearch();
+          return;
+        }
+
+        document.querySelectorAll(".message").forEach((msg) => {
+          const textDiv = msg.querySelector(".msg-text");
+          const nameDiv = msg.querySelector(".name");
+
+          if (textDiv && !textDiv.dataset.original)
+            textDiv.dataset.original = textDiv.innerHTML;
+          if (nameDiv && !nameDiv.dataset.original)
+            nameDiv.dataset.original = nameDiv.innerHTML;
+
+          const rawText = (textDiv?.dataset.original || "").toLowerCase();
+          const rawName = (nameDiv?.dataset.original || "").toLowerCase();
+
+          const matchesText = rawText.includes(query);
+          const matchesName = rawName.includes(query);
+
+          if (matchesText || matchesName) {
+            msg.classList.remove("search-hidden");
+            msg.classList.add("search-match");
+            if (textDiv && matchesText)
+              textDiv.innerHTML = highlightText(
+                textDiv.dataset.original,
+                query,
+              );
+            if (nameDiv && matchesName)
+              nameDiv.innerHTML = highlightText(
+                nameDiv.dataset.original,
+                query,
+              );
+          } else {
+            msg.classList.add("search-hidden");
+            msg.classList.remove("search-match");
+            if (textDiv && textDiv.dataset.original)
+              textDiv.innerHTML = textDiv.dataset.original;
+            if (nameDiv && nameDiv.dataset.original)
+              nameDiv.innerHTML = nameDiv.dataset.original;
+          }
+        });
+      });
+
+      function highlightText(original, query) {
+        const plain = original
+          .replace(/<mark>/gi, "")
+          .replace(/<\/mark>/gi, "");
+        const regex = new RegExp(
+          `(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+          "gi",
+        );
+        return plain.replace(regex, "<mark>$1</mark>");
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeSearch();
+      });
     </script>
   </body>
 </html>
