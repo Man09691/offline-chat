@@ -910,6 +910,7 @@
       let myPrivateKey = null;
       let otherPublicKeys = {};
       let privateTarget = null;
+      let historyLoaded = new Set();
 
       const encryptionSupported = window.crypto && window.crypto.subtle;
 
@@ -1107,6 +1108,14 @@
         a.click();
       }
 
+      // ✅ ADD THIS BLOCK — auto-restore username on page load
+      window.addEventListener("load", () => {
+        const saved = localStorage.getItem("chat_username");
+        if (saved) {
+          document.getElementById("username-input").value = saved;
+        }
+      });
+
       // ── JOIN ──
       document.getElementById("join-btn").addEventListener("click", joinChat);
       document
@@ -1120,6 +1129,8 @@
           const input = document.getElementById("username-input").value.trim();
           if (!input) return;
           username = input;
+
+          localStorage.setItem("chat_username", username);
 
           document.getElementById("join-screen").style.display = "none";
           document.getElementById("chat-screen").style.display = "flex";
@@ -1192,9 +1203,17 @@
               text: `🔒 Private to ${privateTarget}: ${text}`,
               encrypted: willEncrypt,
             },
+
             true,
             true,
           );
+
+          // ✅ ADD THIS
+          savePrivateMessage(privateTarget, {
+            from: username,
+            text: text,
+            time: baseData.time,
+          });
 
           if (willEncrypt) {
             const encryptedText = await encryptMessage(
@@ -1260,6 +1279,14 @@
 
         const displayData = { ...data, text: messageText };
         addMessage(displayData, false, data.private);
+        // ✅ ADD THIS
+        if (data.private) {
+          savePrivateMessage(data.username, {
+            from: data.username,
+            text: messageText,
+            time: data.time,
+          });
+        }
         playSound();
 
         // Tell sender message was delivered
@@ -1352,6 +1379,11 @@
             document.getElementById("message-input").placeholder =
               `Private to ${user}...`;
             document.getElementById("message-input").focus();
+            // ✅ REPLACE the loadPrivateHistory call with this
+            if (!historyLoaded.has(user)) {
+              loadPrivateHistory(user);
+              historyLoaded.add(user);
+            }
           });
 
           panel.appendChild(chip);
@@ -1686,6 +1718,32 @@
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeSearch();
       });
+
+      function savePrivateMessage(contact, msgObj) {
+        const key = `pm_${username}_${contact}`;
+        const history = JSON.parse(localStorage.getItem(key) || "[]");
+        history.push(msgObj);
+        if (history.length > 200) history.splice(0, history.length - 200);
+        localStorage.setItem(key, JSON.stringify(history));
+      }
+
+      function loadPrivateHistory(contact) {
+        const key = `pm_${username}_${contact}`;
+        const history = JSON.parse(localStorage.getItem(key) || "[]");
+        history.forEach((msg) => {
+          addMessage(
+            {
+              id: generateID(),
+              username: msg.from,
+              text: msg.text,
+              time: msg.time,
+              private: true,
+            },
+            msg.from === username,
+            true,
+          );
+        });
+      }
     </script>
   </body>
 </html>
