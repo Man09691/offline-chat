@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Obsidian Pulse | Chat</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-dim": "#a533ff",
+                        "on-error": "#490006",
+                        "background": "#0d0e17",
+                        "on-surface-variant": "#abaab7",
+                        "inverse-surface": "#fbf8ff",
+                        "on-primary": "#005762",
+                        "surface-bright": "#2a2b3a",
+                        "primary-fixed": "#00e3fd",
+                        "surface-tint": "#81ecff",
+                        "tertiary": "#70aaff",
+                        "on-surface": "#f1effd",
+                        "primary-container": "#00e3fd",
+                        "surface-variant": "#242532",
+                        "secondary-fixed-dim": "#ddb3ff",
+                        "secondary": "#c47fff",
+                        "on-secondary-fixed-variant": "#7900c6",
+                        "error-container": "#9f0519",
+                        "tertiary-fixed": "#80b2ff",
+                        "inverse-primary": "#006976",
+                        "error-dim": "#d7383b",
+                        "outline-variant": "#474752",
+                        "surface-container": "#181924",
+                        "surface-dim": "#0d0e17",
+                        "tertiary-container": "#599cf9",
+                        "surface": "#0d0e17",
+                        "on-background": "#f1effd",
+                        "outline": "#757480",
+                        "primary-dim": "#00d4ec",
+                        "inverse-on-surface": "#54545f",
+                        "primary": "#81ecff",
+                        "tertiary-fixed-dim": "#65a4ff",
+                        "secondary-container": "#8c00e5",
+                        "on-primary-container": "#004d57",
+                        "surface-container-highest": "#242532",
+                        "surface-container-low": "#12131d",
+                        "on-secondary": "#340059",
+                        "on-error-container": "#ffa8a3",
+                        "primary-fixed-dim": "#00d4ec",
+                        "on-tertiary-container": "#001d3f",
+                        "on-tertiary-fixed-variant": "#003971",
+                        "surface-container-high": "#1d1f2b",
+                        "on-tertiary": "#002a55",
+                        "on-secondary-fixed": "#500086",
+                        "tertiary-dim": "#5c9ffc",
+                        "error": "#ff716c",
+                        "on-primary-fixed-variant": "#005762",
+                        "surface-container-lowest": "#000000",
+                        "secondary-fixed": "#e7c5ff",
+                        "on-primary-fixed": "#003840",
+                        "on-secondary-container": "#fff5ff",
+                        "on-tertiary-fixed": "#001835"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-panel {
+            background: rgba(36, 37, 50, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .signature-gradient {
+            background: linear-gradient(135deg, #81ecff 0%, #c47fff 100%);
+        }
+        .ghost-border-light {
+            border-top: 0.5px solid rgba(0, 212, 236, 0.2);
+            border-left: 0.5px solid rgba(0, 212, 236, 0.2);
+        }
+        .pulse-animation {
+            animation: pulse-glow 3s infinite ease-in-out;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+        ::-webkit-scrollbar { width: 0px; height: 0px; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30">
+<!-- Sidebar (Desktop NavigationDrawer) -->
+<aside class="fixed inset-y-0 left-0 z-40 flex flex-col hidden md:flex h-full w-80 bg-surface-container-low shadow-2xl shadow-cyan-500/5 font-['Manrope']">
+<div class="px-6 py-8 flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg signature-gradient flex items-center justify-center shadow-[0_0_15px_rgba(129,236,255,0.3)]">
+<span class="material-symbols-outlined text-on-primary">hub</span>
+</div>
+<div>
+<h2 class="text-lg font-bold text-on-surface leading-tight">Nexus Prime</h2>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary pulse-animation shadow-[0_0_8px_#81ecff]"></span>
+<span class="text-[10px] uppercase tracking-widest text-primary font-bold">Pulse Active</span>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-2 overflow-y-auto">
+<a class="flex items-center gap-4 px-4 py-3 bg-surface-container-high text-primary rounded-lg transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">hub</span>
+<span class="font-medium">Channels</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface/70 hover:bg-surface-container-high/50 transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">chat_bubble</span>
+<span class="font-medium">Direct Messages</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface/70 hover:bg-surface-container-high/50 transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">folder_open</span>
+<span class="font-medium">Files</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 text-on-surface/70 hover:bg-surface-container-high/50 transition-all duration-300 ease-in-out" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium">Settings</span>
+</a>
+</nav>
+<div class="p-6 bg-surface-container-lowest/20">
+<div class="flex items-center gap-4">
+<img alt="User Profile" class="w-10 h-10 rounded-full object-cover grayscale brightness-125 border border-primary/20" data-alt="portrait of a futuristic professional man with sharp features and a confident expression, low key dramatic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVixDstkN7z5syCHo9E8fAyJu2BDAlSit5vs_1l68m6ZwyW4VvT7SJmFXPJyQN_B7MT3jDD_Pw1gvHbTajb-puxIUPXPmUdtz2py8wcg_zxnRFqPj5cMHMs5PTlB5DgK9VpD5SRFjiOZw4RPNXxrElbcyWsym8uoO9MT2tO4nRwnOA9g9ay_LUdRSCOLR6fRSN4CzapLf6UDIpqszNiHXkLqip6ywBp7rbTPGRAFY3sSDnctmgFRZyZX1TvAESR4AxdA99V2CdGS8"/>
+<div>
+<p class="text-sm font-bold">User Profile</p>
+<p class="text-xs text-on-surface-variant">Online</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-80 h-screen flex flex-col relative overflow-hidden bg-surface">
+<!-- Floating Blurred Orbs -->
+<div class="absolute -top-40 -right-40 w-96 h-96 bg-secondary-dim/5 blur-[120px] rounded-full"></div>
+<div class="absolute -bottom-40 -left-40 w-96 h-96 bg-primary/5 blur-[120px] rounded-full"></div>
+<!-- Top Header -->
+<header class="flex justify-between items-center w-full px-6 py-4 bg-background/80 backdrop-blur-md z-30 shadow-[0_0_20px_rgba(129,236,255,0.05)] sticky top-0 font-['Space_Grotesk'] tracking-tight">
+<div class="flex items-center gap-3">
+<h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-[#81ecff] to-[#c47fff]">Obsidian Pulse</h1>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-[10px] text-primary-dim border border-primary-dim/20">42 ONLINE</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-lg text-primary hover:bg-surface-container-high transition-colors active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<div class="w-8 h-8 rounded-full border border-primary/20 overflow-hidden md:hidden">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="close up headshot of a person with a serene expression against a dark background, blue neon rim lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBroZKr_KNKJ8ebvKOuw8uPxVVotIAC7ITcozWv3E8TcofIgqZHP31gMyu1Sm6t0cqiSuY5g75d88DuFv3PpI-A7py3yxwjEDmhdaO7CjrRlU-Ry6fHq-Haad0m88aZv2kEjvnFs0sNSDT8LFVdE2IiY3qnlPQIMlcuTTQvqJ7-0xcI8xiIONqa5oaiIJkpdYMIXXjMNh1GgJ2oOeFT2eapLCNGYXggGnXosDefL2Wtc2eeG9mhHQZomJQgnI6dubpTFN5N_UjXc6U"/>
+</div>
+</div>
+</header>
+<!-- Online Users Scroll -->
+<div class="px-6 py-4 flex gap-4 overflow-x-auto whitespace-nowrap scroll-smooth z-20">
+<div class="flex flex-col items-center gap-2 group cursor-pointer">
+<div class="relative">
+<div class="w-14 h-14 rounded-full p-0.5 ring-2 ring-primary ring-offset-2 ring-offset-background group-active:scale-90 transition-transform">
+<img alt="User" class="w-full h-full rounded-full object-cover" data-alt="headshot of a stylish man with beard and high-tech glasses, cinematic urban lighting with purple hues" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPGxLMEkkdUSGci2YabhGq-9IebNCf4jPfaoIW5g53LBEEFB3xkV3Tbpzj1h0Wcb_dkwE1ESZiX4x9L8CDSGoYuWJ3QkgKKdeVtMYHNJxxEa4H3HNwBxRG_sPk17UyEGwR-41Ft54VsqShNGgY_arFxoLwr2L37u_ozwRmmfOq4IjJnWNwsBf_YLWPdH7i2AauQnH677em_wA-rZc2dTWCs1Qwkrd0EdBWcnmFrF1aZpO9ntnnX9_CVv5e09RnZxMXIcoszZVxgF0"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-primary rounded-full border-2 border-background shadow-[0_0_8px_#81ecff]"></span>
+</div>
+<span class="text-[10px] font-bold text-on-surface/80 uppercase tracking-tighter">Alex</span>
+</div>
+<!-- Repeated users -->
+<div class="flex flex-col items-center gap-2 group cursor-pointer opacity-60 hover:opacity-100 transition-opacity">
+<div class="relative">
+<div class="w-14 h-14 rounded-full p-0.5 group-active:scale-90 transition-transform">
+<img alt="User" class="w-full h-full rounded-full object-cover" data-alt="portrait of a smiling woman with vibrant colorful hair, glowing neon background with soft focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0WgIQ3TRqWa_V77cENe89JzqkJ5JE0923ZxWiRZ6N4aMN-SwJLeZpSoWVTdlPadC91xOmK4Z7ML8zVds6K48-jMth_QZzifwVaAkLwytQv4rl6y_oPtL7tEDbTJhItLbx7ljnQEKw4sqvWAoT8uJFlvSDDwpitgAA_fdu404J19COyMwyrsGXyJYL09UI5ElxjR8ZyUlq4NJhjya-kAP6Un_BV0oOx6HEYmgf9tDchGAcj1nWf9WhOXDVkXnM8-JHmYnPWJY3Pp0"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-primary rounded-full border-2 border-background"></span>
+</div>
+<span class="text-[10px] font-medium text-on-surface/60 uppercase tracking-tighter">Elena</span>
+</div>
+<div class="flex flex-col items-center gap-2 group cursor-pointer opacity-60 hover:opacity-100 transition-opacity">
+<div class="relative">
+<div class="w-14 h-14 rounded-full p-0.5 group-active:scale-90 transition-transform">
+<img alt="User" class="w-full h-full rounded-full object-cover" data-alt="man with thoughtful expression, sharp studio lighting with deep shadows, dark blue background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9XD7nHa-No9PxJsZdX6gffBGp6TNyURswPLWAiGWvhmHfRbfBKUVsc8Zaik_3Drs4nNnqwj-0crjD5fRBRN5whB_6bc3IFXVlChl-DvwKE8umIU8hr9Sa1QyrADwrpZzICqOgNQHAdI7hf-2kRivJAhBkgQTr84LrLLXzcWAlMmoMr5_YIhnbHHsf9P1LI1IW42xWoPHzvkM8tXD5Fpq0wIj-SqjiXpkahjtZ5cNhp__E97DOTLNWqcKG5f-q91c6pdXfgkcTHIk"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-primary rounded-full border-2 border-background"></span>
+</div>
+<span class="text-[10px] font-medium text-on-surface/60 uppercase tracking-tighter">Marcus</span>
+</div>
+<div class="flex flex-col items-center gap-2 group cursor-pointer opacity-60 hover:opacity-100 transition-opacity">
+<div class="relative">
+<div class="w-14 h-14 rounded-full p-0.5 group-active:scale-90 transition-transform">
+<img alt="User" class="w-full h-full rounded-full object-cover" data-alt="close-up portrait of a woman with symmetrical features, soft cyber-punk lighting in teal and magenta" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAR2eTSmAcwHSbV5Jk-3JQEoas0-jehh6t2O0wwp4B40H2TUj8Az8b8H4vbJ06IfQLpHufw8nd7fjqfSP7jSfrRSKQUxrDzHq6S-q2WgO63Lxa2wTqw59jACEITHcI-nMWIGwQkP0ww6r7vEVefYiCIpcf0TrPpWnlfX1j7tNUUFdLvauNAMFCc8dlXJjQDriRCOXASpoBJDdJDTzFtAAFgNbTZGBHKLhhJ_T_voPBoBf3VUm_JkDGzvDjxGDXXRz91cOVDs-OSIRU"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-primary rounded-full border-2 border-background"></span>
+</div>
+<span class="text-[10px] font-medium text-on-surface/60 uppercase tracking-tighter">Sora</span>
+</div>
+<!-- More slots... -->
+<div class="flex flex-col items-center gap-2 group cursor-pointer opacity-60 hover:opacity-100 transition-opacity">
+<div class="relative">
+<div class="w-14 h-14 rounded-full p-0.5 group-active:scale-90 transition-transform">
+<img alt="User" class="w-full h-full rounded-full object-cover" data-alt="young creative person with glasses, bright pop lighting with vivid yellow accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCIpPb1w6pbicTPQ65gZRwQ6IQG1n4Gsvz2Tuz3tMYoGNbZpOE9q8PjkrjZ4XadIP1B1kkrmmyAjma1HA2xHxUnLTeUIHw2U-xMOod6FPXPag66Ah9D8hHdLkFgLb5A33wJv4enMEXQgXP0PLS4n2H_uavpw74lrrLWaQv46YtyEEjnlrsCH3yyqj6XzGV3ufucyweTt7RYbymf_7Aan5NiTCKxW4k6tWDAbNl8xz15L0Aatvfa3dPPyvFGwzhm-xY-do2DjUJ83uk"/>
+</div>
+<span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-primary rounded-full border-2 border-background"></span>
+</div>
+<span class="text-[10px] font-medium text-on-surface/60 uppercase tracking-tighter">Kai</span>
+</div>
+</div>
+<!-- Message Feed -->
+<section class="flex-1 overflow-y-auto px-6 py-4 space-y-8 scrollbar-hide">
+<!-- Timestamp Divider -->
+<div class="flex justify-center">
+<span class="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant font-bold px-4 py-1 bg-surface-container rounded-full">Today, 14:32</span>
+</div>
+<!-- Incoming Message (Standard) -->
+<div class="flex gap-4 max-w-[85%] md:max-w-[70%]">
+<div class="flex-shrink-0 mt-auto">
+<img alt="Alex" class="w-8 h-8 rounded-lg object-cover border border-primary/10" data-alt="small circular avatar of a man with high-tech glasses, blue lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2-WQmG-nYqUpud1Mf9ZtfG1c3TlkPlQP02cmeQN9ociysHCXd3BX4EAJthDVG9mFB-yLs5bLZ8UQnCBIoLNmw-0SdMemRoNT60uvSxoYtapwM_vZ7xertZapC1IHODqMI7z81cBc_rNscAuOmkC9MoJtFECRw0B01wdmG4zYMRtSFHNy138gPLGCaB_RNajx1FiDz2PVd9tVUcEU_e4JFAiXdbWvHHdZBVrTYfDYy0iC9Ex10B0GsX8R8J8ttuNmezHZ9vSgYttE"/>
+</div>
+<div class="space-y-1">
+<div class="px-4 py-3 bg-surface-container-high rounded-xl rounded-bl-none glass-panel relative">
+<p class="text-sm leading-relaxed">System sync complete. All encrypted nodes are now active. Ready for the file transmission?</p>
+</div>
+<span class="text-[10px] text-on-surface-variant/60 block px-1">14:35</span>
+</div>
+</div>
+<!-- Outgoing Message (Self) -->
+<div class="flex flex-row-reverse gap-4 max-w-[85%] md:max-w-[70%] ml-auto">
+<div class="space-y-1 items-end flex flex-col">
+<div class="px-4 py-3 signature-gradient text-on-primary rounded-xl rounded-br-none shadow-[0_10px_30px_rgba(129,236,255,0.15)] ghost-border-light relative">
+<p class="text-sm font-medium leading-relaxed">Confirmed. Sending the blueprint and the asset renders now. Check the secure vault folder.</p>
+</div>
+<span class="text-[10px] text-on-surface-variant/60 block px-1">14:37</span>
+</div>
+</div>
+<!-- Private Message (Special Accent) -->
+<div class="flex gap-4 max-w-[85%] md:max-w-[70%]">
+<div class="flex-shrink-0 mt-auto">
+<img alt="Elena" class="w-8 h-8 rounded-lg object-cover border border-secondary/20" data-alt="small circular avatar of a woman with vibrant hair, magenta lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgNshohXoxNP-chMNb386mcmJX6qHzi6ermvKTI9nXIoGaDH6rZ1bGrVNvWIxdbx3LmFbk54Z1IX_zjPf1Mlh31BPMgQRQBLs4CTTcff1a5edHdY43NSjq2FU77vav6CXwgUIjANYnxlpK16hrbE1vDLWveaiQJ29-KcZ9HgKRc4i1Jyf5CoOXrtnhz_cyK3D_9AZ-GxLJTdlapGuf9TSLX9AOGICMPU2ur3rUeYN6ues3K3pglHrfnHCwYQNX2wt3yGXAd-TNLdY"/>
+</div>
+<div class="space-y-1">
+<div class="px-1 flex items-center gap-1.5 mb-1">
+<span class="material-symbols-outlined text-[12px] text-secondary" style="font-variation-settings: 'FILL' 1;">lock</span>
+<span class="text-[10px] text-secondary font-bold uppercase tracking-widest">Whisper</span>
+</div>
+<div class="px-4 py-3 bg-surface-container-high border-l-2 border-secondary/60 rounded-xl rounded-bl-none glass-panel">
+<p class="text-sm text-secondary-fixed leading-relaxed">The internal board met today. They loved the Obsidian Pulse concept. We might get the green light by EOD.</p>
+</div>
+<span class="text-[10px] text-on-surface-variant/60 block px-1">14:40</span>
+</div>
+</div>
+<!-- Attachment Preview Card -->
+<div class="flex flex-row-reverse gap-4 max-w-[85%] md:max-w-[70%] ml-auto">
+<div class="space-y-2 w-full flex flex-col items-end">
+<div class="w-full grid grid-cols-2 gap-2 max-w-sm">
+<div class="aspect-square rounded-xl overflow-hidden border border-primary/20 relative group">
+<img alt="Asset 1" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="abstract digital artwork with flowing fluid shapes in neon cyan and purple, high contrast dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJU1fYgH3zb6oNa4nCQ_Wp1TzURPD8cUh70GV2uADtkgQxRzg_gRTasfXi6bX7l2MOk2mWAKRDHRiUycvjqKcwD2BAJvknQcTwgU5nTX2G6oER9jOdbgnfS4G2XvKUlKXGU5gv0Xc3TKM_NBxmmzCUcnK46ACAfnThSnng3ML_oTxgxEa6umI__UO6-VsTCGGaOGDVWl4yURih1I1vSmcTYjgd6lK7qOJMKQRDjTVgnOH_ywp1Icbvu7HdiwaMNBSeZgtDwZ8s3yU"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-primary">visibility</span>
+</div>
+</div>
+<div class="aspect-square rounded-xl overflow-hidden border border-primary/20 relative group">
+<img alt="Asset 2" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="3D render of complex glowing geometric structures and particles, technical aesthetics, dark obsidian surface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuADfHMHTJtARRZ71wiZlm8--xO1VgMMJbZnepz5VJzUEYffzi-GhuerFgv8e2_XPvqfM7wlG0yS9haYtb2X4jd6SLS2KQLzfobIs70gyfxJLz7WN1CaNOQv5sv-u2qgNKbBXCf0WrefYmwMYRbcydTkIvmJ_kNdAFUji25q9A0SuE8UXCP_X0MoxbTKB9yuDcceUBFPNSb1jYkYiKGINT-sJ886vhuIJaXWCT00Smr7dSddsmjR3tdhSR3BaMuMxgG5ylR8p1Uw76A"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+<span class="material-symbols-outlined text-primary">visibility</span>
+</div>
+</div>
+</div>
+<div class="w-full max-w-sm p-3 bg-surface-container-high rounded-xl border border-primary/10 flex items-center gap-4 glass-panel">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">description</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold truncate">Project_Pulse_Specs.v2.pdf</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest">12.4 MB • PDF</p>
+</div>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-highest flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-sm">download</span>
+</button>
+</div>
+<span class="text-[10px] text-on-surface-variant/60 block px-1">14:45</span>
+</div>
+</div>
+</section>
+<!-- Bottom Input Area -->
+<footer class="p-4 md:p-6 bg-background/60 backdrop-blur-xl z-30 sticky bottom-0 border-t border-primary/10">
+<div class="max-w-4xl mx-auto flex items-end gap-3 md:gap-4">
+<button class="p-3 rounded-xl bg-surface-variant/20 hover:bg-surface-variant/40 text-on-surface-variant transition-all backdrop-blur-md active:scale-90">
+<span class="material-symbols-outlined" data-icon="attachment">attachment</span>
+</button>
+<div class="flex-1 relative group">
+<textarea class="w-full bg-transparent border-none border-b border-outline-variant/30 focus:border-primary focus:ring-0 text-on-surface placeholder:text-on-surface-variant/50 py-3 resize-none font-body transition-all duration-300" placeholder="Pulse a message..." rows="1"></textarea>
+<div class="absolute bottom-0 left-0 h-0.5 w-0 bg-gradient-to-r from-primary to-secondary transition-all duration-500 group-focus-within:w-full"></div>
+</div>
+<div class="flex gap-2">
+<button class="p-3 rounded-xl bg-surface-variant/20 hover:bg-surface-variant/40 text-on-surface-variant transition-all backdrop-blur-md hidden sm:block">
+<span class="material-symbols-outlined">mood</span>
+</button>
+<button class="h-12 w-12 rounded-xl signature-gradient text-on-primary shadow-[0_5px_15px_rgba(129,236,255,0.3)] flex items-center justify-center transition-all hover:shadow-[0_8px_25px_rgba(129,236,255,0.5)] active:scale-95 group">
+<span class="material-symbols-outlined group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+</footer>
+</main>
+<!-- Bottom Navigation (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 h-16 bg-background/40 backdrop-blur-xl border-t border-primary/10 font-['Manrope'] text-[10px] uppercase tracking-widest">
+<a class="flex flex-col items-center justify-center text-primary relative after:content-[''] after:absolute after:-bottom-1 after:w-1 after:h-1 after:bg-primary after:rounded-full after:shadow-[0_0_8px_#81ecff] scale-110 duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="forum" style="font-variation-settings: 'FILL' 1;">forum</span>
+<span class="mt-1">Chat</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface/40 hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="mt-1">Contacts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface/40 hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="attachment">attachment</span>
+<span class="mt-1">Files</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface/40 hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="mt-1">Profile</span>
+</a>
+</nav>
+</body></html>

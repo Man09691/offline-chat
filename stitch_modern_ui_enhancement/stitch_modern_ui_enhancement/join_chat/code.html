@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Join Obsidian Pulse</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-dim": "#a533ff",
+                        "on-error": "#490006",
+                        "background": "#0d0e17",
+                        "on-surface-variant": "#abaab7",
+                        "inverse-surface": "#fbf8ff",
+                        "on-primary": "#005762",
+                        "surface-bright": "#2a2b3a",
+                        "primary-fixed": "#00e3fd",
+                        "surface-tint": "#81ecff",
+                        "tertiary": "#70aaff",
+                        "on-surface": "#f1effd",
+                        "primary-container": "#00e3fd",
+                        "surface-variant": "#242532",
+                        "secondary-fixed-dim": "#ddb3ff",
+                        "secondary": "#c47fff",
+                        "on-secondary-fixed-variant": "#7900c6",
+                        "error-container": "#9f0519",
+                        "tertiary-fixed": "#80b2ff",
+                        "inverse-primary": "#006976",
+                        "error-dim": "#d7383b",
+                        "outline-variant": "#474752",
+                        "surface-container": "#181924",
+                        "surface-dim": "#0d0e17",
+                        "tertiary-container": "#599cf9",
+                        "surface": "#0d0e17",
+                        "on-background": "#f1effd",
+                        "outline": "#757480",
+                        "primary-dim": "#00d4ec",
+                        "inverse-on-surface": "#54545f",
+                        "primary": "#81ecff",
+                        "tertiary-fixed-dim": "#65a4ff",
+                        "secondary-container": "#8c00e5",
+                        "on-primary-container": "#004d57",
+                        "surface-container-highest": "#242532",
+                        "surface-container-low": "#12131d",
+                        "on-secondary": "#340059",
+                        "on-error-container": "#ffa8a3",
+                        "primary-fixed-dim": "#00d4ec",
+                        "on-tertiary-container": "#001d3f",
+                        "on-tertiary-fixed-variant": "#003971",
+                        "surface-container-high": "#1d1f2b",
+                        "on-tertiary": "#002a55",
+                        "on-secondary-fixed": "#500086",
+                        "tertiary-dim": "#5c9ffc",
+                        "error": "#ff716c",
+                        "on-primary-fixed-variant": "#005762",
+                        "surface-container-lowest": "#000000",
+                        "secondary-fixed": "#e7c5ff",
+                        "on-primary-fixed": "#003840",
+                        "on-secondary-container": "#fff5ff",
+                        "on-tertiary-fixed": "#001835"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0d0e17;
+            color: #f1effd;
+            font-family: 'Manrope', sans-serif;
+            overflow-x: hidden;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-panel {
+            background: rgba(36, 37, 50, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .signature-gradient {
+            background: linear-gradient(135deg, #81ecff 0%, #c47fff 100%);
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #81ecff 0%, #c47fff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .pulse-glow {
+            box-shadow: 0 0 20px rgba(129, 236, 255, 0.15);
+        }
+        .ghost-border {
+            border: 0.5px solid rgba(0, 212, 236, 0.2);
+        }
+        .bg-orb {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(120px);
+            z-index: -1;
+            opacity: 0.08;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex flex-col items-center justify-center relative p-6">
+<!-- Background Elements -->
+<div class="bg-orb top-[-10%] left-[-10%] bg-primary"></div>
+<div class="bg-orb bottom-[-10%] right-[-10%] bg-secondary-dim"></div>
+<div class="absolute inset-0 z-[-2] opacity-30" style="background-image: radial-gradient(circle at 2px 2px, #1d1f2b 1px, transparent 0); background-size: 40px 40px;"></div>
+<!-- Main Content Container -->
+<div class="w-full max-w-md flex flex-col items-center space-y-10">
+<!-- Brand Identity Section -->
+<header class="text-center space-y-4">
+<div class="relative inline-block">
+<!-- Large Vibrant Logo -->
+<div class="w-24 h-24 signature-gradient rounded-xl flex items-center justify-center shadow-[0_0_40px_rgba(129,236,255,0.3)] transform -rotate-6">
+<span class="material-symbols-outlined text-on-primary text-5xl" data-icon="hub">hub</span>
+</div>
+<!-- Pulse Indicator Decoration -->
+<div class="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full blur-[4px] animate-pulse"></div>
+</div>
+<div class="space-y-1">
+<h1 class="text-4xl font-headline font-bold tracking-tight text-on-surface">Obsidian Pulse</h1>
+<p class="text-on-surface-variant font-label text-sm uppercase tracking-[0.2em]">Secure Offline Node</p>
+</div>
+</header>
+<!-- Join Card (Glassmorphic) -->
+<main class="w-full glass-panel rounded-xl p-8 ghost-border space-y-8 shadow-2xl">
+<!-- QR Section -->
+<div class="flex flex-col items-center space-y-4">
+<div class="relative p-4 bg-white/5 rounded-lg border border-outline-variant/30">
+<img alt="QR Code" class="w-40 h-40 opacity-90" data-alt="A high-contrast digital QR code on a dark background with subtle neon cyan glow around the edges" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBATTfhthXbukYN4_h4JIveqDv8rbXZ_UAczaDVysFh7x9JP3b1NgEGYCXqC1X3QkqUxMEG0Lu6QS9Wm-15SMDKAiA4Kt2WBzoA46CY1pw-DJ3sSZhgflUV79Tc_xpptLFE1045I6R7Jc-Ck_1eNsHt17KJVXNmQdPl1OvUutd1ktOL5ED2Bpjnids0FumgESRMcf7Z9-UVox98k2vBpYfxGJvq8FeltYlYUnsodd4yvzFRmUQyO867ogTErmwNccFueck1TBOhzag"/>
+<div class="absolute inset-0 border-[2px] border-primary/20 rounded-lg pointer-events-none"></div>
+</div>
+<p class="text-on-surface-variant font-body text-xs text-center leading-relaxed">
+                    Scan to sync with the local mesh network<br/>
+<span class="text-primary/70">ID: PULSE-X9-22-ALPHA</span>
+</p>
+</div>
+<!-- Input Section -->
+<div class="space-y-6">
+<div class="group relative">
+<label class="block text-[10px] font-label uppercase tracking-widest text-on-surface-variant mb-2 ml-1" for="username">Identity Tag</label>
+<div class="relative">
+<input class="w-full bg-transparent border-none border-b border-outline-variant py-3 px-1 text-on-surface placeholder:text-outline focus:ring-0 focus:border-primary transition-all duration-500 font-body text-lg" id="username" placeholder="Nexus Prime" type="text"/>
+<div class="absolute bottom-0 left-0 h-[2px] w-0 bg-gradient-to-r from-primary to-secondary group-focus-within:w-full transition-all duration-500"></div>
+</div>
+<div class="mt-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-xs text-primary/60" data-icon="security">security</span>
+<span class="text-[10px] text-on-surface-variant/60 font-label">Encrypted locally on device</span>
+</div>
+</div>
+<!-- Action Button -->
+<button class="w-full signature-gradient py-4 rounded-sm font-headline font-bold text-on-primary tracking-wide transition-all duration-300 hover:shadow-[0_0_30px_rgba(129,236,255,0.4)] active:scale-[0.98] flex items-center justify-center gap-3">
+                    JOIN CHAT
+                    <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</main>
+<!-- Footer / Secondary Actions -->
+<footer class="flex flex-col items-center space-y-6">
+<div class="flex items-center gap-8">
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2 text-xs font-label uppercase tracking-wider">
+<span class="material-symbols-outlined text-sm" data-icon="settings">settings</span>
+                    Node Config
+                </button>
+<div class="w-px h-4 bg-outline-variant/30"></div>
+<button class="text-on-surface-variant hover:text-secondary transition-colors flex items-center gap-2 text-xs font-label uppercase tracking-wider">
+<span class="material-symbols-outlined text-sm" data-icon="help_outline">help_outline</span>
+                    Mesh Help
+                </button>
+</div>
+<!-- Connection Status -->
+<div class="flex items-center gap-3 bg-surface-container-high/50 px-4 py-2 rounded-full border border-outline-variant/20">
+<div class="w-2 h-2 bg-primary rounded-full animate-pulse shadow-[0_0_8px_#81ecff]"></div>
+<span class="text-[10px] text-on-surface-variant font-label uppercase tracking-[0.15em]">3 Nodes Detected in Range</span>
+</div>
+</footer>
+</div>
+<!-- Navigation Shell (Bottom Nav Bar mapping from JSON) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 h-16 bg-[#0d0e17]/40 backdrop-blur-xl border-t border-[#81ecff]/10 font-['Manrope'] text-[10px] uppercase tracking-widest">
+<div class="flex flex-col items-center justify-center text-[#f1effd]/40 hover:text-[#f1effd] transition-all duration-300">
+<span class="material-symbols-outlined mb-1" data-icon="forum">forum</span>
+            Chat
+        </div>
+<div class="flex flex-col items-center justify-center text-[#f1effd]/40 hover:text-[#f1effd] transition-all duration-300">
+<span class="material-symbols-outlined mb-1" data-icon="group">group</span>
+            Contacts
+        </div>
+<div class="flex flex-col items-center justify-center text-[#f1effd]/40 hover:text-[#f1effd] transition-all duration-300">
+<span class="material-symbols-outlined mb-1" data-icon="attachment">attachment</span>
+            Files
+        </div>
+<div class="flex flex-col items-center justify-center text-[#81ecff] relative after:content-[''] after:absolute after:-bottom-1 after:w-1 after:h-1 after:bg-[#81ecff] after:rounded-full after:shadow-[0_0_8px_#81ecff] scale-110">
+<span class="material-symbols-outlined mb-1" data-icon="account_circle">account_circle</span>
+            Profile
+        </div>
+</nav>
+</body></html>

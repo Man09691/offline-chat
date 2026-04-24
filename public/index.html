@@ -756,8 +756,11 @@
       }
 
       /* Seen → blue double tick */
+      .msg-status {
+        color: var(--subtext); /* grey by default */
+      }
       .msg-status.seen {
-        color: #4fc3f7;
+        color: #4fc3f7; /* blue only when seen */
       }
     </style>
   </head>
@@ -1042,7 +1045,7 @@
           document.getElementById("preview-send").onclick = () => {
             modal.style.display = "none";
             const data = {
-              id: generateID(),
+              id: msg.id || generateID(),
               username: username,
               fileName: file.name,
               fileType: file.type,
@@ -1209,11 +1212,14 @@
           );
 
           // ✅ ADD THIS
-          savePrivateMessage(privateTarget, {
-            from: username,
-            text: text,
-            time: baseData.time,
-          });
+          if (data.private) {
+            savePrivateMessage(data.username, {
+              id: data.id, // ← must have this
+              from: data.username,
+              text: messageText,
+              time: data.time,
+            });
+          }
 
           if (willEncrypt) {
             const encryptedText = await encryptMessage(
@@ -1267,18 +1273,41 @@
         }
 
         let messageText = data.text;
+        let encryptionStatus = "unencrypted";
 
-        // Decrypt if needed
         if (data.encrypted && encryptionSupported) {
+          encryptionStatus = "pending";
+          const displayData = { ...data, text: "⏳ Decrypting..." };
+          addMessage(displayData, false, data.private);
+          updateEncryptionStatus(data.id, "pending");
+
           try {
             messageText = await decryptMessage(data.text);
+            encryptionStatus = "encrypted";
           } catch (err) {
-            messageText = "🔒 Could not decrypt";
+            messageText = "Could not decrypt message";
+            encryptionStatus = "failed";
           }
+
+          // Update bubble text and icon after decryption
+          const msgEl = document.querySelector(
+            `[data-msgid="${data.id}"] .msg-text`,
+          );
+          if (msgEl) msgEl.textContent = messageText;
+          updateEncryptionStatus(data.id, encryptionStatus);
+        } else {
+          const displayData = { ...data, text: messageText };
+          addMessage(displayData, false, data.private);
+          updateEncryptionStatus(data.id, "unencrypted");
         }
 
-        const displayData = { ...data, text: messageText };
-        addMessage(displayData, false, data.private);
+        if (data.private) {
+          savePrivateMessage(data.username, {
+            from: data.username,
+            text: messageText,
+            time: data.time,
+          });
+        }
         // ✅ ADD THIS
         if (data.private) {
           savePrivateMessage(data.username, {
@@ -1298,6 +1327,31 @@
 
         // Relay forward with original encrypted data
         socket.emit("chat message", data);
+
+        // Tell sender message was delivered
+        socket.emit("message delivered", {
+          messageId: data.id,
+          sentBy: data.username,
+          deliveredTo: username,
+        });
+        // Tell sender message was seen
+        // Tell sender only if tab is visible right now
+        if (document.visibilityState === "visible") {
+          socket.emit("message seen confirmed", {
+            messageId: data.id,
+            sentBy: data.username,
+          });
+        } else {
+          // Tab is hidden — wait until user comes back
+          const handler = () => {
+            socket.emit("message seen confirmed", {
+              messageId: data.id,
+              sentBy: data.username,
+            });
+            document.removeEventListener("visibilitychange", handler);
+          };
+          document.addEventListener("visibilitychange", handler);
+        }
       });
 
       // ── RELAY CONFIRMATION ──
@@ -1324,6 +1378,36 @@
           statusEl.classList.add("delivered");
           statusEl.textContent = "✓✓";
           statusEl.title = "Delivered";
+        }
+      });
+
+      socket.on("message seen confirmed", (data) => {
+        const statusEl = document.querySelector(
+          `[data-msgid-status="${data.messageId}"]`,
+        );
+        if (statusEl) {
+          statusEl.classList.remove("sending", "sent", "delivered");
+          statusEl.classList.add("seen");
+          statusEl.textContent = "✓✓";
+          statusEl.title = "Seen";
+        }
+      });
+
+      socket.on("peer count", (data) => {
+        const statusEl = document.querySelector(
+          `[data-msgid-status="${data.id}"]`,
+        );
+        if (statusEl) {
+          if (data.count === 0) {
+            // no one else online — single tick stays
+            statusEl.textContent = "✓";
+          } else {
+            // someone is there — upgrade to grey double tick
+            statusEl.classList.remove("sending");
+            statusEl.classList.add("delivered");
+            statusEl.textContent = "✓✓";
+            statusEl.title = "Delivered";
+          }
         }
       });
 
@@ -1606,19 +1690,84 @@
       });
 
       // ── SOUND NOTIFICATION ──
-      function playSound() {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-        oscillator.frequency.setValueAtTime(520, ctx.currentTime);
-        oscillator.frequency.setValueAtTime(620, ctx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.3);
+      // ── SHARED AUDIO CONTEXT ──
+      let audioCtx = null;
+
+      function getAudioContext() {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+        return audioCtx;
       }
+
+      // Unlock on first touch
+      document.addEventListener(
+        "touchstart",
+        () => {
+          getAudioContext();
+        },
+        { once: true },
+      );
+
+      function playSound() {
+        try {
+          const ctx = getAudioContext();
+
+          // Chime frequencies (iMessage-like)
+          const notes = [
+            { freq: 1318.5, time: 0 }, // E6
+            { freq: 1567.98, time: 0.08 }, // G6
+            { freq: 2093.0, time: 0.16 }, // C7
+          ];
+
+          notes.forEach(({ freq, time }) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + time);
+
+            gain.gain.setValueAtTime(0, ctx.currentTime + time);
+            gain.gain.linearRampToValueAtTime(
+              0.15,
+              ctx.currentTime + time + 0.02,
+            );
+            gain.gain.exponentialRampToValueAtTime(
+              0.001,
+              ctx.currentTime + time + 0.3,
+            );
+
+            osc.start(ctx.currentTime + time);
+            osc.stop(ctx.currentTime + time + 0.35);
+          });
+        } catch (e) {
+          console.log("Sound error:", e);
+        }
+      }
+      // ── UNLOCK AUDIO ON MOBILE ──
+      let audioUnlocked = false;
+
+      document.addEventListener(
+        "touchstart",
+        () => {
+          if (audioUnlocked) return;
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const buf = ctx.createBuffer(1, 1, 22050);
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.connect(ctx.destination);
+          src.start(0);
+          audioUnlocked = true;
+          console.log("🔊 Audio unlocked on mobile");
+        },
+        { once: false },
+      );
 
       // ── MESSAGE SEARCH ──
       const searchBtn = document.getElementById("search-btn");
@@ -1743,6 +1892,31 @@
             true,
           );
         });
+      }
+
+      function updateEncryptionStatus(msgId, status) {
+        const lockEl = document.querySelector(
+          `[data-msgid="${msgId}"] .msg-lock`,
+        );
+        if (!lockEl) return;
+
+        if (status === "encrypted") {
+          lockEl.textContent = "🔒";
+          lockEl.style.color = "#4caf50";
+          lockEl.title = "End-to-end encrypted";
+        } else if (status === "unencrypted") {
+          lockEl.textContent = "🔓";
+          lockEl.style.color = "#f44336";
+          lockEl.title = "Not encrypted";
+        } else if (status === "failed") {
+          lockEl.textContent = "⚠️";
+          lockEl.style.color = "#ff9800";
+          lockEl.title = "Decryption failed";
+        } else if (status === "pending") {
+          lockEl.textContent = "⏳";
+          lockEl.style.color = "#999";
+          lockEl.title = "Decrypting...";
+        }
       }
     </script>
   </body>

@@ -31,7 +31,7 @@ app.get('/getip', (req, res) => {
 });
 
 let users = {};
-let seenMessages = new Set();
+let seenMessages = new Map(); // id → timestamp
 let publicKeys = {};
 
 io.on('connection', (socket) => {
@@ -68,13 +68,16 @@ io.on('connection', (socket) => {
     });
 
     // ── SEEN CONFIRMED → blue double tick ──
+    // ── SEEN CONFIRMED → blue double tick ──
+// ── SEEN CONFIRMED → relay to sender's socket ──
     socket.on('message seen confirmed', (data) => {
-        const statusEl = document.querySelector(`[data-msgid-status="${data.messageId}"]`);
-        if (statusEl) {
-            statusEl.classList.remove('sending', 'sent', 'delivered');
-            statusEl.classList.add('seen');
-            statusEl.textContent = '✓✓';
-            statusEl.title = 'Seen';
+        const senderSocketId = Object.keys(users).find(
+            id => users[id] === data.sentBy
+        );
+        if (senderSocketId) {
+            io.to(senderSocketId).emit('message seen confirmed', {
+                messageId: data.messageId
+            });
         }
     });
 
@@ -90,14 +93,18 @@ io.on('connection', (socket) => {
             console.log('Duplicate ignored:', dedupKey);
             return;
         }
+        // auto-delete after 5 minutes
+        setTimeout(() => seenMessages.delete(dedupKey), 5 * 60 * 1000);
         if (data.hops >= data.maxHops) {
             console.log('Max hops reached — message stopped:', data.id);
             return;
         }
-        seenMessages.add(dedupKey);
+        seenMessages.set(dedupKey, Date.now());
         data.hops = data.hops + 1;
         console.log(`📨 Message ${data.id} — hop ${data.hops}/${data.maxHops}`);
         socket.broadcast.emit('chat message', data);
+        // tell sender how many others are online
+        socket.emit('peer count', { id: data.id, count: io.engine.clientsCount - 1 });
         socket.emit('message relayed', { id: data.id, hops: data.hops });
         socket.emit('message seen', {
             messageId: data.id,
@@ -111,11 +118,12 @@ io.on('connection', (socket) => {
             console.log('Duplicate file ignored:', data.id);
             return;
         }
+        setTimeout(() => seenMessages.delete(data.id), 5 * 60 * 1000);
         if (data.hops >= data.maxHops) {
             console.log('Max hops reached — file stopped:', data.id);
             return;
         }
-        seenMessages.add(data.id);
+        seenMessages.set(data.id, Date.now());
         data.hops = data.hops + 1;
         console.log(`📁 File ${data.fileName} — hop ${data.hops}/${data.maxHops}`);
         socket.broadcast.emit('file message', data);
