@@ -6,6 +6,8 @@
     <title>Offline Chat</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#00d4ff" />
     <style>
       * {
         margin: 0;
@@ -42,10 +44,12 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 100vh;
-        gap: 20px;
+        min-height: 100vh;
+        overflow-y: auto;
+        gap: 14px;
         padding: 24px;
         animation: fadeIn 0.5s ease;
+        scrollbar-width: none;
       }
 
       .logo {
@@ -784,6 +788,25 @@
         placeholder="Enter your name"
         maxlength="20"
       />
+      <select
+        id="room-select"
+        style="
+          padding: 12px 22px;
+          border-radius: 30px;
+          border: 2px solid var(--accent);
+          background: var(--surface);
+          color: var(--text);
+          font-size: 15px;
+          outline: none;
+          width: 280px;
+          text-align: center;
+        "
+      >
+        <option value="general">📢 General</option>
+        <option value="help">🆘 Help</option>
+        <option value="location">📍 Location</option>
+        <option value="random">💬 Random</option>
+      </select>
       <button id="join-btn">Join Chat →</button>
     </div>
 
@@ -794,6 +817,9 @@
           <span>📡</span>
           <div>
             <div id="header-title">Offline Chat</div>
+            <div id="room-label" style="font-size: 11px; color: var(--accent)">
+              # general
+            </div>
             <div id="header-sub">No Internet Used</div>
           </div>
         </div>
@@ -865,6 +891,19 @@
       <div id="users-panel">
         <div id="users-list"></div>
       </div>
+
+      <div
+        id="room-banner"
+        style="
+          padding: 6px 16px;
+          font-size: 12px;
+          color: var(--subtext);
+          background: rgba(0, 212, 255, 0.05);
+          border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+          text-align: center;
+          display: none;
+        "
+      ></div>
 
       <div id="private-indicator">
         <span id="private-label"
@@ -975,6 +1014,14 @@
       }
 
       let username = "";
+      let currentRoom = "general";
+      const roomDescriptions = {
+        general: "📢 General — casual conversation and announcements",
+        help: "🆘 Help — emergencies only. Need help or offering help.",
+        location:
+          "📍 Location — share where you are. Coordinates and meeting points only.",
+        random: "💬 Random — off topic, non-urgent conversations",
+      };
       let typingTimeout;
 
       // ── GENERATE QR CODE ──
@@ -1045,7 +1092,7 @@
           document.getElementById("preview-send").onclick = () => {
             modal.style.display = "none";
             const data = {
-              id: msg.id || generateID(),
+              id: generateID(),
               username: username,
               fileName: file.name,
               fileType: file.type,
@@ -1138,6 +1185,9 @@
           document.getElementById("join-screen").style.display = "none";
           document.getElementById("chat-screen").style.display = "flex";
 
+          currentRoom = document.getElementById("room-select").value;
+          socket.emit("user joined", { username: username, room: currentRoom });
+
           if (encryptionSupported) {
             console.log("🔐 Encryption supported — generating keys...");
             await generateKeyPair();
@@ -1154,7 +1204,20 @@
             document.getElementById("header-sub").style.color = "#ffaa00";
           }
 
-          socket.emit("user joined", username);
+          
+          document.getElementById("room-label").textContent =
+            "# " + currentRoom;
+          const banner = document.getElementById("room-banner");
+          if (currentRoom === "help" || currentRoom === "location") {
+            banner.textContent = roomDescriptions[currentRoom];
+            banner.style.display = "block";
+            setTimeout(() => {
+              banner.style.display = "none";
+            }, 4000);
+          } else {
+            banner.style.display = "none";
+          }
+          document.getElementById("header-title").textContent = "Offline Chat";
           console.log("✅ Joined as", username);
         } catch (err) {
           console.error("❌ Join failed:", err);
@@ -1192,6 +1255,7 @@
           }),
           hops: 0,
           maxHops: 5,
+          room: currentRoom,
         };
 
         if (privateTarget) {
@@ -1212,14 +1276,12 @@
           );
 
           // ✅ ADD THIS
-          if (data.private) {
-            savePrivateMessage(data.username, {
-              id: data.id, // ← must have this
-              from: data.username,
-              text: messageText,
-              time: data.time,
-            });
-          }
+          savePrivateMessage(privateTarget, {
+            id: baseData.id,
+            from: username,
+            text: text,
+            time: baseData.time,
+          });
 
           if (willEncrypt) {
             const encryptedText = await encryptMessage(
@@ -1266,11 +1328,13 @@
 
       // ── RECEIVE MESSAGE — SINGLE LISTENER ONLY ✅ ──
       socket.on("chat message", async (data) => {
-        // Not for me → relay and stop
+        // Relay DMs not meant for me
         if (data.to && data.to !== username) {
           socket.emit("chat message", data);
           return;
         }
+        // Ignore messages from other rooms
+        if (!data.to && data.room && data.room !== currentRoom) return;
 
         let messageText = data.text;
         let encryptionStatus = "unencrypted";
@@ -1301,32 +1365,16 @@
           updateEncryptionStatus(data.id, "unencrypted");
         }
 
-        if (data.private) {
-          savePrivateMessage(data.username, {
-            from: data.username,
-            text: messageText,
-            time: data.time,
-          });
-        }
         // ✅ ADD THIS
         if (data.private) {
           savePrivateMessage(data.username, {
+            id: data.id,
             from: data.username,
             text: messageText,
             time: data.time,
           });
         }
         playSound();
-
-        // Tell sender message was delivered
-        socket.emit("message delivered", {
-          messageId: data.id,
-          sentBy: data.username,
-          deliveredTo: username,
-        });
-
-        // Relay forward with original encrypted data
-        socket.emit("chat message", data);
 
         // Tell sender message was delivered
         socket.emit("message delivered", {
@@ -1882,7 +1930,7 @@
         history.forEach((msg) => {
           addMessage(
             {
-              id: generateID(),
+              id: msg.id || generateID(),
               username: msg.from,
               text: msg.text,
               time: msg.time,
@@ -1917,6 +1965,12 @@
           lockEl.style.color = "#999";
           lockEl.title = "Decrypting...";
         }
+      }
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("/service-worker.js")
+          .then(() => console.log("✅ Service worker registered"))
+          .catch((err) => console.log("❌ SW error:", err));
       }
     </script>
   </body>

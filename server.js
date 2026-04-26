@@ -13,7 +13,9 @@ const sslOptions = {
 };
 
 const server = https.createServer(sslOptions, app);
-const io = new Server(server);
+const io = new Server(server, {
+    maxHttpBufferSize: 10 * 1024 * 1024  // 10MB
+});
 
 app.use(express.static('public'));
 
@@ -31,27 +33,71 @@ app.get('/getip', (req, res) => {
 });
 
 let users = {};
+let rooms = {};
 let seenMessages = new Map(); // id → timestamp
 let publicKeys = {};
 
 io.on('connection', (socket) => {
     console.log('A device connected');
-    io.emit('online count', io.engine.clientsCount);
+    // send each socket their own room count
+    Object.keys(users).forEach(socketId => {
+        const uname = users[socketId];
+        const uroom = rooms[uname] || 'general';
+        const count = Object.values(rooms).filter(r => r === uroom).length;
+        io.to(socketId).emit('online count', count);
+    });
 
-    socket.on('user joined', (username) => {
-        users[socket.id] = username;
-        io.emit('user joined', username);
-        io.emit('online count', io.engine.clientsCount);
-        io.emit('user list', Object.values(users));
+    socket.on('user joined', (data) => {
+        const name = typeof data === 'string' ? data : data.username;
+        const room = typeof data === 'object' ? data.room : 'general';
+        users[socket.id] = name;
+        rooms[name] = room;
+        const joinRoom = rooms[name] || 'general';
+        Object.keys(users).forEach(socketId => {
+            const uroom = rooms[users[socketId]] || 'general';
+            if (uroom === joinRoom) {
+                io.to(socketId).emit('user joined', name);
+            }
+        });
+        // send each socket their own room count
+        Object.keys(users).forEach(socketId => {
+            const uname = users[socketId];
+            const uroom = rooms[uname] || 'general';
+            const count = Object.values(rooms).filter(r => r === uroom).length;
+            io.to(socketId).emit('online count', count);
+        });
+        // send each socket only users in their room
+        Object.keys(users).forEach(socketId => {
+            const uname = users[socketId];
+            const uroom = rooms[uname] || 'general';
+            const roomUsers = Object.keys(users)
+                .filter(id => (rooms[users[id]] || 'general') === uroom)
+                .map(id => users[id]);
+            io.to(socketId).emit('user list', roomUsers);
+        });
     });
 
     socket.on('share public key', (data) => {
         publicKeys[data.username] = data.publicKey;
         console.log(`🔑 Public key received from ${data.username}`);
-        io.emit('public key shared', data);
-        socket.emit('all public keys', publicKeys);
+        // Only share key with users in same room
+        const keyRoom = rooms[data.username] || 'general';
+        Object.keys(users).forEach(socketId => {
+            const uroom = rooms[users[socketId]] || 'general';
+            if (uroom === keyRoom) {
+                io.to(socketId).emit('public key shared', data);
+            }
+        });
+        const myRoom = rooms[data.username] || 'general';
+        const roomKeys = {};
+        Object.keys(publicKeys).forEach(uname => {
+            if ((rooms[uname] || 'general') === myRoom && uname !== data.username) {
+                roomKeys[uname] = publicKeys[uname];
+            }
+        });
+        socket.emit('all public keys', roomKeys);
     });
-
+    
     // ── READ RECEIPTS ──
     socket.on('message delivered', (data) => {
         // data = { messageId, deliveredTo }
@@ -93,18 +139,33 @@ io.on('connection', (socket) => {
             console.log('Duplicate ignored:', dedupKey);
             return;
         }
-        // auto-delete after 5 minutes
-        setTimeout(() => seenMessages.delete(dedupKey), 5 * 60 * 1000);
         if (data.hops >= data.maxHops) {
             console.log('Max hops reached — message stopped:', data.id);
             return;
         }
-        seenMessages.set(dedupKey, Date.now());
-        data.hops = data.hops + 1;
+        // Drop message if sender has no room assigned yet
+        if (!rooms[data.username]) {
+            console.log('No room for sender — message dropped:', data.username);
+            return;
+        }
         console.log(`📨 Message ${data.id} — hop ${data.hops}/${data.maxHops}`);
-        socket.broadcast.emit('chat message', data);
+        // Only send to users in the same room
+        // Only send to users in the same room
+        Object.keys(users).forEach(socketId => {
+            if (socketId !== socket.id) {
+                const recipientRoom = rooms[users[socketId]] || 'general';
+                const senderRoom = rooms[data.username] || 'general';
+                const isDMForThisUser = data.to && users[socketId] === data.to;
+                const sameRoom = !data.to && recipientRoom === senderRoom;
+                if (sameRoom || isDMForThisUser) {
+                    io.to(socketId).emit('chat message', data);
+                }
+            }
+        });
         // tell sender how many others are online
-        socket.emit('peer count', { id: data.id, count: io.engine.clientsCount - 1 });
+        const senderRoom = rooms[data.username] || 'general';
+        const roomCount = Object.values(rooms).filter(r => r === senderRoom).length - 1;
+        socket.emit('peer count', { id: data.id, count: roomCount });
         socket.emit('message relayed', { id: data.id, hops: data.hops });
         socket.emit('message seen', {
             messageId: data.id,
@@ -141,12 +202,33 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         const username = users[socket.id];
         if (username) {
+            const leftRoom = rooms[username] || 'general';
             delete users[socket.id];
+            delete rooms[username];
             delete publicKeys[username];
-            io.emit('user left', username);
-            io.emit('user list', Object.values(users));
+            Object.keys(users).forEach(socketId => {
+                const uroom = rooms[users[socketId]] || 'general';
+                if (uroom === leftRoom) {
+                    io.to(socketId).emit('user left', username);
+                }
+            });
+            // send each socket only users in their room
+        Object.keys(users).forEach(socketId => {
+            const uname = users[socketId];
+            const uroom = rooms[uname] || 'general';
+            const roomUsers = Object.keys(users)
+                .filter(id => (rooms[users[id]] || 'general') === uroom)
+                .map(id => users[id]);
+            io.to(socketId).emit('user list', roomUsers);
+        });
         }
-        io.emit('online count', io.engine.clientsCount);
+        // send each socket their own room count
+        Object.keys(users).forEach(socketId => {
+            const uname = users[socketId];
+            const uroom = rooms[uname] || 'general';
+            const count = Object.values(rooms).filter(r => r === uroom).length;
+            io.to(socketId).emit('online count', count);
+        });
     });
 
     socket.on('message seen', (data) => {
