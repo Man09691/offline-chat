@@ -57,10 +57,10 @@ Host runs server → QR code auto-generated
 → Other device scans QR → Chat opens instantly
 
 ### Chat Rooms
-#general — casual conversation and announcements
-#help    — emergencies only, need help or offering help
-#location — share coordinates and meeting points
-#random  — off topic conversations
+- `#general` — casual conversation and announcements
+- `#help` — emergencies only, need help or offering help
+- `#location` — share coordinates and meeting points
+- `#random` — off topic conversations
 
 Each room is fully isolated — different users, different messages, different keys.
 
@@ -73,13 +73,16 @@ Each room is fully isolated — different users, different messages, different k
 * HTML / CSS / JavaScript
 
 ## How To Run
+
+```bash
 git clone https://github.com/Man09691/offline-chat
 cd offline-chat
 npm install
 node generate-cert.js
 node server.js
+```
 
-Open `https://YOUR-IP:3443` on host device.
+Open `https://YOUR-IP:3443` on the host device.
 
 Connect another device to the same WiFi/hotspot and either:
 
@@ -97,6 +100,32 @@ End to End Encryption uses the **Web Crypto API** which only works on:
 
 App automatically falls back to unencrypted mode with a warning shown in header.
 
+## Security Notes
+
+* `cert.pem` and `key.pem` are generated locally by `generate-cert.js` and are **never committed to GitHub** (excluded via `.gitignore`). Each user generates their own certificate pair when they run the app.
+* These files live at the **project root**, not inside `public/` — anything inside `public/` is served directly to browsers over HTTP, so certs must stay outside it or the private key becomes downloadable by anyone on the network.
+* The certificate is self-signed, so browsers will show a one-time security warning on first connect. This is expected — accept it via "Advanced → Proceed" to continue.
+
+## Known Limitations / Troubleshooting
+
+**"The page just keeps loading, no certificate warning appears"**
+This almost always means the two devices aren't actually reachable on the same network yet — the connection never reaches the server, so the browser has nothing to warn about. Common causes:
+
+* **Stale static IP on the host laptop.** Windows sometimes keeps a manually-set static IP from a previous network (e.g. college/office WiFi) instead of picking up a fresh address from the phone's hotspot via DHCP. Check via `ipconfig` → if `DHCP Enabled` shows `No`, switch the adapter back to *"Obtain an IP address automatically"* in the adapter's IPv4 properties, then reconnect to the hotspot.
+* **Firewall blocking inbound connections.** The host's OS firewall can silently drop incoming connections on port `3443` from other devices, even though `localhost` works fine locally. Allow Node.js through the firewall for both Private and Public networks.
+* **Wrong protocol.** The server only runs on HTTPS — typing `http://` instead of `https://` will hang indefinitely.
+
+**"The IP address keeps changing every time I reconnect"**
+The host device's IP is assigned by the hotspot's DHCP server and isn't guaranteed to stay the same across sessions. Two ways to work around this:
+1. Set a **static IP** on the host device matching the hotspot's subnet (works reliably as long as you're reconnecting to the *same* hotspot each time).
+2. Always rely on the **QR code** rather than a memorized/typed IP — the QR is regenerated fresh from the current IP every time the server starts, so it's always accurate.
+
+**"No way to discover the host without already knowing the IP"**
+This is a real, unsolved limitation for true zero-knowledge disaster scenarios (i.e. a stranger joining a hotspot with no prior instructions). Possible future solutions:
+* Hosting the server directly on the phone (e.g. via Termux) so the address is the hotspot's own gateway IP, which is more predictable than a DHCP-assigned client IP.
+* A captcaptive-portal style redirect (like hotel WiFi), so any URL typed automatically redirects to the chat app — technically the most robust fix, but requires a local DNS layer and is out of scope for the current version.
+* Physical/printed QR codes as a low-tech backup for when a phone screen isn't visible.
+
 ## Roadmap
 
 * Phase 1 ✅ LAN chat over hotspot
@@ -108,3 +137,4 @@ App automatically falls back to unencrypted mode with a warning shown in header.
 * Phase 7 ✅ PWA — installable on phone home screen
 * Phase 8 🔮 Voice notes — record and send audio messages
 * Phase 9 🔮 Android app — one tap hotspot server
+* Phase 10 🔮 Captive portal / zero-knowledge discovery for true disaster-scenario onboarding
