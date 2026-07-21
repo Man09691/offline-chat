@@ -7,6 +7,14 @@ const fs = require('fs');
 
 const app = express();
 
+// Auto regenerate cert if IP changed
+const { execSync } = require('child_process');
+try {
+execSync('node generate-cert.js', { stdio: 'inherit' });   console.log('✅ Certificate regenerated');
+} catch(e) {
+    console.log('⚠️ Could not regenerate cert:', e.message);
+}
+
 const sslOptions = {
     key: fs.readFileSync('key.pem'),
     cert: fs.readFileSync('cert.pem')
@@ -192,12 +200,28 @@ io.on('connection', (socket) => {
     });
 
     socket.on('typing', (username) => {
-        socket.broadcast.emit('typing', username);
-    });
+            const typerRoom = rooms[username] || 'general';
+            Object.keys(users).forEach(socketId => {
+                if (socketId !== socket.id) {
+                    const uroom = rooms[users[socketId]] || 'general';
+                    if (uroom === typerRoom) {
+                        io.to(socketId).emit('typing', username);
+                    }
+                }
+            });
+        });
 
-    socket.on('stop typing', () => {
-        socket.broadcast.emit('stop typing');
-    });
+        socket.on('stop typing', () => {
+            const typerRoom = rooms[users[socket.id]] || 'general';
+            Object.keys(users).forEach(socketId => {
+                if (socketId !== socket.id) {
+                    const uroom = rooms[users[socketId]] || 'general';
+                    if (uroom === typerRoom) {
+                        io.to(socketId).emit('stop typing');
+                    }
+                }
+            });
+        });
 
     socket.on('disconnect', () => {
         const username = users[socket.id];
